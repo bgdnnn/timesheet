@@ -1,22 +1,10 @@
-import { base44 } from './base44Client';
+// src/api/integrations.js
+import { client } from "./timesheetClient";
 
-
-
-
-export const Core = base44.integrations.Core;
-
-export const InvokeLLM = base44.integrations.Core.InvokeLLM;
-
-export const SendEmail = base44.integrations.Core.SendEmail;
-
-export const UploadFile = base44.integrations.Core.UploadFile;
-
-export const GenerateImage = base44.integrations.Core.GenerateImage;
-
-export const ExtractDataFromUploadedFile = base44.integrations.Core.ExtractDataFromUploadedFile;
-
-
-
-
-
-
+export const Core = client.integrations.Core;
+export const InvokeLLM = client.integrations.Core.InvokeLLM;
+export const SendEmail = client.integrations.Core.SendEmail;
+export const UploadFile = client.integrations.Core.UploadFile;
+export const GenerateImage = client.integrations.Core.GenerateImage;
+export const ExtractDataFromUploadedFile =
+  client.integrations.Core.ExtractDataFromUploadedFile;

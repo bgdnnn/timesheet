@@ -1,13 +1,9 @@
-import { base44 } from './base44Client';
+// src/api/entities.js
+import { client } from "./timesheetClient";
 
+export const Project = client.entities.Project;
+export const TimeEntry = client.entities.TimeEntry;
+export const Hotel = client.entities.Hotel;
 
-export const Project = base44.entities.Project;
-
-export const TimeEntry = base44.entities.TimeEntry;
-
-export const Hotel = base44.entities.Hotel;
-
-
-
-// auth sdk:
-export const User = base44.auth;
+// auth facade:
+export const User = client.auth;
