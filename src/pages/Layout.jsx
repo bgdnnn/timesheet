@@ -100,17 +100,21 @@ export default function Layout({ children, currentPageName }) {
   };
 
   const downloadFile = (content, fileName, contentType) => {
-    const blob = new Blob([content], { type: contentType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+
+  // must be in the DOM in some browsers
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // delay revoke a bit so the download starts cleanly
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
   const handleExport = async (entityName, fileFormat) => {
     setIsMobileMenuOpen(false); // Close mobile menu if open
@@ -124,7 +128,8 @@ export default function Layout({ children, currentPageName }) {
 
     let data;
     try {
-      data = await Entity.filter({ created_by: user.email }, "-created_date");
+      const sortKey = entityName === "TimeEntry" ? "date" : "name";
+      data = await Entity.filter({ created_by: user.email }, sortKey);
     } catch (error) {
       console.error(`Error fetching ${entityName} data for export:`, error);
       alert(`Failed to fetch ${entityName.toLowerCase()} data. Please try again.`);
@@ -134,6 +139,11 @@ export default function Layout({ children, currentPageName }) {
     if (!data || data.length === 0) {
       alert(`No ${entityName.toLowerCase()} data to export.`);
       return;
+    }
+    if (entityName === "TimeEntry") {
+      data = data.slice().sort((a, b) => b.date.localeCompare(a.date));
+    } else if (entityName === "Project" || entityName === "Hotel") {
+      data = data.slice().sort((a, b) => (b.name || "").localeCompare(a.name || ""));
     }
 
     const processedData = data.map((item) => {

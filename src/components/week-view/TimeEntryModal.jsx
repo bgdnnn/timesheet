@@ -47,7 +47,7 @@ const ModalContent = ({ children, onClose, className = "" }) => (
 export default function TimeEntryModal({ isOpen, onClose, projects, hotels, selectedDate, onSave, entry, onDelete, allEntries }) {
     const [date, setDate] = useState(selectedDate);
     const [projectId, setProjectId] = useState(entry?.project_id || "");
-    const [hotelId, setHotelId] = useState(entry?.hotel_id || "none");
+    const [hotelId, setHotelId] = useState(entry?.hotel_id ? String(entry.hotel_id) : "none");
     const [hoursWorked, setHoursWorked] = useState(entry?.hours_worked || 0);
     const [travelTime, setTravelTime] = useState(entry?.travel_time || 0);
     const [isSaving, setIsSaving] = useState(false);
@@ -57,7 +57,7 @@ export default function TimeEntryModal({ isOpen, onClose, projects, hotels, sele
         if (entry) {
             setDate(new Date(entry.date));
             setProjectId(entry.project_id);
-            setHotelId(entry.hotel_id || "none");
+            setHotelId(entry.hotel_id ? String(entry.hotel_id) : "none");
             setHoursWorked(entry.hours_worked);
             setTravelTime(entry.travel_time);
         } else {
@@ -127,8 +127,8 @@ export default function TimeEntryModal({ isOpen, onClose, projects, hotels, sele
             return;
         }
 
-        const selectedHotel = hotelId !== "none" ? hotels.find(h => h.id === hotelId) : null;
-        const finalHotelId = hotelId === "none" ? null : hotelId;
+        const hotelIdNum = hotelId === "none" ? null : Number(hotelId);
+        const selectedHotel = hotelIdNum != null ? hotels.find(h => Number(h.id) === hotelIdNum) : null;
         
         const entryData = {
             date: format(date, "yyyy-MM-dd"),
@@ -136,8 +136,8 @@ export default function TimeEntryModal({ isOpen, onClose, projects, hotels, sele
             project_name: selectedProject.name,
             hours_worked: parseFloat(hoursWorked),
             travel_time: parseFloat(travelTime),
-            hotel_id: parseFloat(travelTime) > 0 ? finalHotelId : null,
-            hotel_name: parseFloat(travelTime) > 0 ? (selectedHotel?.name || null) : null,
+            hotel_id: hotelIdNum,
+            hotel_name: selectedHotel?.name || null,
         };
 
         try {
@@ -247,7 +247,7 @@ export default function TimeEntryModal({ isOpen, onClose, projects, hotels, sele
                                 <SelectContent className="bg-gray-800/80 backdrop-blur-lg border-white/20 text-white">
                                     <SelectItem value="none" className="text-sm md:text-base">N/A</SelectItem>
                                     {hotels.map(h => (
-                                        <SelectItem key={h.id} value={h.id} className="text-sm md:text-base">
+                                        <SelectItem key={h.id} value={String(h.id)} className="text-sm md:text-base">
                                             {h.name}
                                         </SelectItem>
                                     ))}
