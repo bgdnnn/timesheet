@@ -1,33 +1,36 @@
 // src/api/timesheetClient.js
 import { api, filterQuery, setAccessToken } from "./apiClient";
 
-// ---- Auth facade (matches your current usage) ----
+// Read API base from Vite env at build time
+const API_BASE =
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.VITE_API_BASE) ||
+  "";
+
+// ---- Auth facade ----
 const auth = {
   async me() {
-    // GET /me -> { id, email, full_name, company?, wage?, role, created_date?, updated_date? }
     return api("/me");
   },
 
   async updateMyUserData(partial) {
-    // PATCH /me with fields like { company, wage }
     return api("/me", { method: "PATCH", body: partial });
   },
 
-  // Optional helpers to keep Layout.jsx happy:
+  // Launch Google OAuth on the backend
   login() {
-    // If you add a /login page in your SPA, redirect there:
-    window.location.href = "/login";
+    const returnTo = window.location.href;
+    window.location.href = `${API_BASE}/auth/google/login?returnTo=${encodeURIComponent(returnTo)}`;
   },
 
   loginWithRedirect(returnTo) {
-    // Same idea; your future login page can read ?returnTo=
-    const url = new URL("/login", window.location.origin);
-    if (returnTo) url.searchParams.set("returnTo", returnTo);
-    window.location.href = url.toString();
+    const r = returnTo || window.location.href;
+    window.location.href = `${API_BASE}/auth/google/login?returnTo=${encodeURIComponent(r)}`;
   },
 
+  // Optional: local password login (unused if you only do Google)
   async passwordLogin(email, password) {
-    // When backend exists: POST /auth/login -> { access_token, refresh_token }
     const tokens = await api("/auth/login", {
       method: "POST",
       body: { email, password },
@@ -37,16 +40,14 @@ const auth = {
   },
 
   async logout() {
-    // If backend supports POST /auth/logout, you can call it. For now just clear token.
     setAccessToken("");
   },
 };
 
-// ---- Generic CRUD factories for your three entities ----
+// ---- CRUD factory ----
 function makeEntityRoutes(basePath) {
   return {
     async filter(queryObj, sort) {
-      // GET /<basePath>?..., matching your current .filter({ created_by }, "-created_date")
       return api(`/${basePath}`, { query: filterQuery(queryObj, sort) });
     },
     async create(data) {
@@ -67,13 +68,12 @@ const entities = {
   Hotel: makeEntityRoutes("hotels"),
 };
 
-// ---- Integrations stubs (not used now) ----
+// ---- Integrations stubs ----
 function notImplemented(name) {
   return () => {
     throw new Error(`${name} not implemented (Base44 removed)`);
   };
 }
-
 const integrations = {
   Core: {
     InvokeLLM: notImplemented("InvokeLLM"),
@@ -84,9 +84,4 @@ const integrations = {
   },
 };
 
-// Export the same overall shape as your old client
-export const client = {
-  auth,
-  entities,
-  integrations,
-};
+export const client = { auth, entities, integrations };

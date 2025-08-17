@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .env
+# Local env and build
+.env
+.env.*
+dist/
+node_modules/
+*.log
+.idea/
+.vscode/

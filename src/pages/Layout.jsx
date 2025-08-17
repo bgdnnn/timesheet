@@ -8,7 +8,7 @@ import { Project } from "@/api/entities";
 import { TimeEntry } from "@/api/entities";
 import { Hotel } from "@/api/entities";
 import { AnimatePresence, motion } from "framer-motion";
-import ProfileModal from "./components/profile/ProfileModal";
+import ProfileModal from "../components/profile/ProfileModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
