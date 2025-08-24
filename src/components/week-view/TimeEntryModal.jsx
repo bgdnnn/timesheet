@@ -56,21 +56,20 @@ export default function TimeEntryModal({
   allEntries,
 }) {
   const [date, setDate] = useState(selectedDate);
-  // Keep Select values as strings; convert to numbers when looking up / saving
-  const [projectId, setProjectId] = useState(entry?.project_id ? String(entry.project_id) : "");
-  const [hotelId, setHotelId] = useState(entry?.hotel_id ? String(entry.hotel_id) : "none");
-  const [hoursWorked, setHoursWorked] = useState(entry?.hours_worked ?? 0);
-  const [travelTime, setTravelTime] = useState(entry?.travel_time ?? 0);
+  const [projectId, setProjectId] = useState(entry?.project_id || "");
+  const [hotelId, setHotelId] = useState(entry?.hotel_id || "none");
+  const [hoursWorked, setHoursWorked] = useState(entry?.hours_worked || 0);
+  const [travelTime, setTravelTime] = useState(entry?.travel_time || 0);
   const [isSaving, setIsSaving] = useState(false);
   const [sortedProjects, setSortedProjects] = useState([]);
 
   useEffect(() => {
     if (entry) {
       setDate(new Date(entry.date));
-      setProjectId(entry.project_id ? String(entry.project_id) : "");
-      setHotelId(entry.hotel_id ? String(entry.hotel_id) : "none");
-      setHoursWorked(entry.hours_worked ?? 0);
-      setTravelTime(entry.travel_time ?? 0);
+      setProjectId(entry.project_id);
+      setHotelId(entry.hotel_id || "none");
+      setHoursWorked(entry.hours_worked);
+      setTravelTime(entry.travel_time);
     } else {
       setDate(selectedDate);
       setProjectId("");
@@ -80,14 +79,13 @@ export default function TimeEntryModal({
     }
   }, [entry, selectedDate]);
 
-  // Sort projects by recent usage, then alphabetically
   useEffect(() => {
-    if (!projects) {
+    if (!projects || projects.length === 0) {
       setSortedProjects([]);
       return;
     }
     if (!allEntries || allEntries.length === 0) {
-      setSortedProjects([...projects].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+      setSortedProjects([...projects].sort((a, b) => a.name.localeCompare(b.name)));
       return;
     }
     const lastUsedMap = new Map();
@@ -105,45 +103,39 @@ export default function TimeEntryModal({
       if (A && B) return B - A;
       if (A) return -1;
       if (B) return 1;
-      return (a.name || "").localeCompare(b.name || "");
+      return a.name.localeCompare(b.name);
     });
     setSortedProjects(sorted);
   }, [projects, allEntries]);
 
-  const handleProjectChange = (idStr) => {
-    setProjectId(idStr);
-    const pid = Number(idStr);
-    const selectedProject = projects?.find((p) => Number(p.id) === pid);
-    if (selectedProject) {
-      setHoursWorked(selectedProject.default_hours_worked || 0);
-      setTravelTime(selectedProject.default_travel_time || 0);
+  const handleProjectChange = (id) => {
+    setProjectId(id);
+    const p = projects.find((x) => String(x.id) === String(id));
+    if (p) {
+      setHoursWorked(p.default_hours_worked || 0);
+      setTravelTime(p.default_travel_time || 0);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-
-    const pid = projectId ? Number(projectId) : null;
-    const selectedProject = projects?.find((p) => Number(p.id) === pid);
-
-    if (!pid || !selectedProject) {
-      console.error("Project not found/selected");
+    const p = projects.find((x) => String(x.id) === String(projectId));
+    if (!p) {
+      console.error("Project not found");
       setIsSaving(false);
       return;
     }
-
-    const hid = hotelId === "none" ? null : Number(hotelId);
-    const selectedHotel = hid != null ? hotels?.find((h) => Number(h.id) === hid) : null;
+    const selectedHotel = hotelId !== "none" ? hotels.find((h) => String(h.id) === String(hotelId)) : null;
+    const finalHotelId = hotelId === "none" ? null : hotelId;
 
     const entryData = {
       date: format(date, "yyyy-MM-dd"),
-      project_id: pid,
-      project_name: selectedProject.name, // ensure name saved
-      hours_worked: parseFloat(hoursWorked),
-      travel_time: parseFloat(travelTime),
-      // keep hotel gated by travel time like your UI; remove the gating if you want it always saved
-      hotel_id: parseFloat(travelTime) > 0 ? hid : null,
+      project_id: projectId,
+      project_name: p.name, // ensure name is stored
+      hours_worked: parseFloat(hoursWorked) || 0,
+      travel_time: parseFloat(travelTime) || 0,
+      hotel_id: parseFloat(travelTime) > 0 ? finalHotelId : null,
       hotel_name: parseFloat(travelTime) > 0 ? (selectedHotel?.name || null) : null,
     };
 
@@ -153,10 +145,9 @@ export default function TimeEntryModal({
       } else {
         await TimeEntry.create(entryData);
       }
-      onSave();
-    } catch (error) {
-      console.error("Failed to save entry:", error);
-      alert(`Failed to save entry: ${error?.message || error}`);
+      onSave && onSave();
+    } catch (err) {
+      console.error("Failed to save entry:", err);
     } finally {
       setIsSaving(false);
     }
@@ -167,8 +158,8 @@ export default function TimeEntryModal({
     if (window.confirm("Are you sure you want to delete this time entry?")) {
       try {
         await onDelete(entry.id);
-      } catch (error) {
-        console.error("Failed to delete entry:", error);
+      } catch (err) {
+        console.error("Failed to delete entry:", err);
       }
     }
   };
@@ -186,10 +177,7 @@ export default function TimeEntryModal({
             <Label className="text-sm md:text-base">Date</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start font-normal mt-2 bg-white/10 border-white/20 hover:bg-white/20 text-sm md:text-base h-9 md:h-10"
-                >
+                <Button variant="outline" className="w-full justify-start font-normal mt-2 bg-white/10 border-white/20 hover:bg-white/20 text-sm md:text-base h-9 md:h-10">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {date ? format(date, "PPP") : <span>Pick a date</span>}
                 </Button>
@@ -202,7 +190,7 @@ export default function TimeEntryModal({
 
           <div>
             <Label className="text-sm md:text-base">Project</Label>
-            <Select value={projectId} onValueChange={handleProjectChange}>
+            <Select value={String(projectId)} onValueChange={handleProjectChange}>
               <SelectTrigger className="mt-2 bg-white/10 border-white/20 text-sm md:text-base h-9 md:h-10">
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
@@ -251,12 +239,14 @@ export default function TimeEntryModal({
                 <Bed className="mr-2 h-4 w-4" />
                 Hotel
               </Label>
-              <Select value={hotelId} onValueChange={setHotelId}>
+              <Select value={String(hotelId)} onValueChange={setHotelId}>
                 <SelectTrigger className="mt-2 bg-white/10 border-white/20 text-sm md:text-base h-9 md:h-10">
                   <SelectValue placeholder="Select a hotel (optional)" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800/80 backdrop-blur-lg border-white/20 text-white">
-                  <SelectItem value="none" className="text-sm md:text-base">N/A</SelectItem>
+                  <SelectItem value="none" className="text-sm md:text-base">
+                    N/A
+                  </SelectItem>
                   {hotels.map((h) => (
                     <SelectItem key={h.id} value={String(h.id)} className="text-sm md:text-base">
                       {h.name}

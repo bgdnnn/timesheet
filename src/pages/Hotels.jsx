@@ -59,7 +59,7 @@ export default function HotelsPage() {
     const handleDelete = async (hotelId) => {
         if (window.confirm("Are you sure you want to delete this hotel? This cannot be undone.")) {
             try {
-                await Hotel.delete(hotelId);
+                await Hotel.remove(hotelId);
                 await fetchHotels(user);
             } catch (error) {
                 console.error("Error deleting hotel:", error);

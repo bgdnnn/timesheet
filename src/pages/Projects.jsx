@@ -60,7 +60,7 @@ export default function ProjectsPage() {
     const handleDelete = async (projectId) => {
         if (window.confirm("Are you sure you want to delete this project?")) {
             try {
-                await Project.delete(projectId);
+                await Project.remove(projectId);
                 await fetchProjects(user);
             } catch (error) {
                 console.error("Error deleting project:", error);

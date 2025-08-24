@@ -1,98 +1,159 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
-import React from "react";
-import { DollarSign, Clock, Car, Calculator } from "lucide-react";
+/**
+ * Accepts either `entries` or `weekEntries`.
+ * Props:
+ * - weekStart: Date
+ * - entries | weekEntries: array of time entries for the selected week
+ * - user: { hourly_rate?: number }
+ * - payslip: { gross_pay, paye_tax, national_insurance, pension, net_pay } | null
+ * - earnings: { gross_pay, paye_tax, national_insurance, pension, net_pay } | null
+ * - onReplacePayslip: () => void
+ */
+export default function WeekSummary(props) {
+  const { weekStart, user, payslip, earnings, onReplacePayslip } = props;
+  const entries = props.entries ?? props.weekEntries ?? [];
 
-const GlassCard = ({ children, className = "" }) => (
-    <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg ${className}`}>
-        {children}
-    </div>
-);
-
-const StatCard = ({ icon: Icon, label, value, className = "" }) => (
-    <GlassCard className={`p-4 text-center ${className}`}>
-        <Icon className="h-6 w-6 mx-auto mb-2 text-cyan-400" />
-        <p className="text-sm text-gray-300 mb-1">{label}</p>
-        <p className="text-xl font-bold">{value}</p>
-    </GlassCard>
-);
-
-export default function WeekSummary({ weekEntries, weekStart, user }) {
-    const currentWeekEntries = weekEntries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 7);
-        return entryDate >= weekStart && entryDate < weekEnd;
-    });
-
-    const totalHoursWorked = currentWeekEntries.reduce((acc, entry) => acc + (entry.hours_worked || 0), 0);
-    const totalTravelHours = currentWeekEntries.reduce((acc, entry) => acc + (entry.travel_time || 0), 0);
-    const totalHours = totalHoursWorked + totalTravelHours;
-    
-    const hourlyWage = user?.wage || 0;
-    const grossWage = totalHours * hourlyWage;
-    const taxRate = 0.29; // 29%
-    const netWage = grossWage * (1 - taxRate);
-
-    return (
-        <div className="mt-6 md:mt-8 space-y-4 md:space-y-6">
-            <div className="text-center">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">Weekly Summary</h2>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <StatCard 
-                    icon={Clock} 
-                    label="Hours Worked" 
-                    value={`${totalHoursWorked.toFixed(1)}h`}
-                />
-                <StatCard 
-                    icon={Car} 
-                    label="Travel Hours" 
-                    value={`${totalTravelHours.toFixed(1)}h`}
-                />
-                <StatCard 
-                    icon={Calculator} 
-                    label="Total Hours" 
-                    value={`${totalHours.toFixed(1)}h`}
-                    className="col-span-2 md:col-span-2"
-                />
-            </div>
-
-            {hourlyWage > 0 && (
-                <GlassCard className="p-4 md:p-6">
-                    <div className="text-center mb-4">
-                        <DollarSign className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 text-green-400" />
-                        <h3 className="text-base md:text-lg font-semibold text-white">Wage Calculation</h3>
-                        <p className="text-xs md:text-sm text-gray-300">Based on £{hourlyWage.toFixed(2)}/hour</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 text-center">
-                        <div className="bg-white/5 p-3 md:p-4 rounded-lg">
-                            <p className="text-xs md:text-sm text-gray-300 mb-1">Gross Wage</p>
-                            <p className="text-lg md:text-xl font-bold text-green-400">£{grossWage.toFixed(2)}</p>
-                        </div>
-                        
-                        <div className="bg-white/5 p-3 md:p-4 rounded-lg">
-                            <p className="text-xs md:text-sm text-gray-300 mb-1">Tax (29%)</p>
-                            <p className="text-lg md:text-xl font-bold text-red-400">-£{(grossWage * taxRate).toFixed(2)}</p>
-                        </div>
-                        
-                        <div className="bg-white/5 p-3 md:p-4 rounded-lg border border-cyan-400/30">
-                            <p className="text-xs md:text-sm text-gray-300 mb-1">Net Wage</p>
-                            <p className="text-xl md:text-2xl font-bold text-cyan-400">£{netWage.toFixed(2)}</p>
-                        </div>
-                    </div>
-                </GlassCard>
-            )}
-
-            {hourlyWage === 0 && (
-                <GlassCard className="p-4 md:p-6 text-center">
-                    <DollarSign className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm md:text-base text-gray-300">
-                        Set your hourly wage in your profile to see wage calculations
-                    </p>
-                </GlassCard>
-            )}
-        </div>
+  const totalHours = useMemo(() => {
+    if (!entries || entries.length === 0) return 0;
+    return entries.reduce(
+      (sum, e) =>
+        sum +
+        Number.parseFloat(e.hours_worked || 0) +
+        Number.parseFloat(e.travel_time || 0),
+      0
     );
+  }, [entries]);
+
+  const [hourlyRate, setHourlyRate] = useState("");
+
+  useEffect(() => {
+    const userRate =
+      user && user.hourly_rate != null ? Number(user.hourly_rate) : null;
+    if (userRate && userRate > 0) setHourlyRate(String(userRate));
+    else setHourlyRate("");
+  }, [user]);
+
+  const hoursNum = totalHours;
+  const usingPayslip = Boolean(payslip && payslip.gross_pay != null);
+  const usingEarnings = Boolean(earnings && earnings.gross_pay != null);
+
+  const source = usingPayslip ? "Payslip (OCR)" : usingEarnings ? "Calculated" : "—";
+
+  const gross = usingPayslip
+    ? Number(payslip.gross_pay)
+    : usingEarnings
+    ? Number(earnings.gross_pay)
+    : 0;
+
+  const payeTax = usingPayslip
+    ? Number(payslip.paye_tax || 0)
+    : usingEarnings
+    ? Number(earnings.paye_tax || 0)
+    : null;
+  const niEmp = usingPayslip
+    ? Number(payslip.national_insurance || 0)
+    : usingEarnings
+    ? Number(earnings.national_insurance || 0)
+    : null;
+  const pensionEmp = usingPayslip
+    ? Number(payslip.pension || 0)
+    : usingEarnings
+    ? Number(earnings.pension || 0)
+    : null;
+  const netPay = usingPayslip
+    ? Number(payslip.net_pay || 0)
+    : usingEarnings
+    ? Number(earnings.net_pay || 0)
+    : null;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/20 bg-white/5 p-4 md:p-6 text-white">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+        <div className="col-span-1">
+          <div className="text-xs text-gray-300 mb-1">Week</div>
+          <div className="text-sm md:text-base font-semibold">
+            {format(weekStart, "dd LLL yyyy")}
+          </div>
+        </div>
+
+        <div className="col-span-1">
+          <div className="text-xs text-gray-300 mb-1">Hours</div>
+          <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
+            {hoursNum.toFixed(2)} h
+          </div>
+        </div>
+
+        <div className="col-span-1">
+          <label className="text-xs text-gray-300 mb-1 block">
+            Hourly rate (£)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={hourlyRate}
+            onChange={(e) => setHourlyRate(e.target.value)}
+            className="w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2 outline-none"
+            placeholder="0.00"
+          />
+        </div>
+
+        <div className="col-span-1">
+          <div className="text-xs text-gray-300 mb-1">Gross (£)</div>
+          <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
+            £{gross.toFixed(2)}
+          </div>
+        </div>
+
+        <div className="col-span-2 md:text-right flex md:justify-end">
+          <Button
+            onClick={onReplacePayslip}
+            className="bg-white/15 hover:bg-white/25 text-white border border-white/20"
+          >
+            Replace payslip
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
+          <div className="text-xs text-gray-300 mb-1">PAYE Tax</div>
+          <div className="text-base font-semibold">
+            {payeTax != null ? <>£{payeTax.toFixed(2)}</> : <span className="text-gray-400">—</span>}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
+          <div className="text-xs text-gray-300 mb-1">NI (Employee)</div>
+          <div className="text-base font-semibold">
+            {niEmp != null ? <>£{niEmp.toFixed(2)}</> : <span className="text-gray-400">—</span>}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
+          <div className="text-xs text-gray-300 mb-1">Pension (You)</div>
+          <div className="text-base font-semibold">
+            {pensionEmp != null ? <>£{pensionEmp.toFixed(2)}</> : <span className="text-gray-400">—</span>}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
+          <div className="text-xs text-gray-300 mb-1">Net Pay</div>
+          <div className="text-base font-semibold">
+            {netPay != null ? `£${netPay.toFixed(2)}` : <span className="text-gray-400">—</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 text-xs text-gray-300">
+        Source:{" "}
+        <span className="text-white font-semibold">
+          {source}
+        </span>
+      </div>
+    </div>
+  );
 }

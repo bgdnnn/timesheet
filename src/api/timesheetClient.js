@@ -1,87 +1,174 @@
 // src/api/timesheetClient.js
-import { api, filterQuery, setAccessToken } from "./apiClient";
 
-// Read API base from Vite env at build time
-const API_BASE =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env.VITE_API_BASE) ||
-  "";
+const BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 
-// ---- Auth facade ----
+function getAccessToken() {
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("accessToken") ||
+    null
+  );
+}
+
+async function fetchJson(path, { method = "GET", headers = {}, body, signal } = {}) {
+  const url = path.startsWith("http") ? path : `${BASE}${path}`;
+  const token = getAccessToken();
+
+  const resp = await fetch(url, {
+    method,
+    credentials: "include",
+    headers: {
+      ...(body != null && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body == null || body instanceof FormData ? body : JSON.stringify(body),
+    signal,
+  });
+
+  if (!resp.ok) {
+    let detail = "";
+    try { detail = await resp.text(); } catch {}
+    throw new Error(`HTTP ${resp.status} ${resp.statusText}${detail ? ` — ${detail}` : ""}`);
+  }
+
+  const ct = resp.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return await resp.json();
+  return await resp.text();
+}
+
+/* ---------- AUTH ---------- */
 const auth = {
   async me() {
-    return api("/me");
+    return fetchJson("/me");
   },
 
-  async updateMyUserData(partial) {
-    return api("/me", { method: "PATCH", body: partial });
-  },
-
-  // Launch Google OAuth on the backend
-  login() {
-    const returnTo = window.location.href;
-    window.location.href = `${API_BASE}/auth/google/login?returnTo=${encodeURIComponent(returnTo)}`;
+  async updateMyUserData(payload) {
+    return fetchJson("/me", { method: "PUT", body: payload });
   },
 
   loginWithRedirect(returnTo) {
-    const r = returnTo || window.location.href;
-    window.location.href = `${API_BASE}/auth/google/login?returnTo=${encodeURIComponent(r)}`;
-  },
-
-  // Optional: local password login (unused if you only do Google)
-  async passwordLogin(email, password) {
-    const tokens = await api("/auth/login", {
-      method: "POST",
-      body: { email, password },
-    });
-    if (tokens && tokens.access_token) setAccessToken(tokens.access_token);
-    return tokens;
+    const rt = encodeURIComponent(returnTo || window.location.href);
+    window.location.assign(`${BASE}/auth/google/login?returnTo=${rt}`);
   },
 
   async logout() {
-    setAccessToken("");
+    console.log("Starting logout process...");
+    try {
+      // Use regular fetch as we are expecting a redirect, not JSON
+      const response = await fetch(`${BASE}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      // After this call, the browser should be redirected by the server.
+      // The code below might not even run if the redirect is immediate.
+      console.log("Backend logout call status:", response.status);
+    } catch (e) {
+      console.error("Backend logout call failed:", e);
+    }
+    console.log("Clearing all localStorage.");
+    localStorage.clear();
+    console.log("Logout process finished.");
   },
 };
 
-// ---- CRUD factory ----
-function makeEntityRoutes(basePath) {
+/* ---------- GENERIC ENTITY MAKER ---------- */
+function mkEntity(path) {
+  const base = path.replace(/\/+$/, "");
   return {
-    async filter(queryObj, sort) {
-      return api(`/${basePath}`, { query: filterQuery(queryObj, sort) });
+    async list(sort) {
+      const qs = sort ? `?sort=${encodeURIComponent(sort)}` : "";
+      return fetchJson(`${base}${qs}`);
+    },
+    async filter(query = {}, sort) {
+      const params = new URLSearchParams();
+      Object.entries(query).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) params.append(k, String(v));
+      });
+      if (sort) params.set("sort", sort);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      return fetchJson(`${base}${qs}`);
+    },
+    async get(id) {
+      return fetchJson(`${base}/${encodeURIComponent(id)}`);
     },
     async create(data) {
-      return api(`/${basePath}`, { method: "POST", body: data });
+      return fetchJson(base, { method: "POST", body: data });
     },
     async update(id, data) {
-      return api(`/${basePath}/${id}`, { method: "PATCH", body: data });
+      return fetchJson(`${base}/${encodeURIComponent(id)}`, { method: "PUT", body: data });
     },
-    async delete(id) {
-      return api(`/${basePath}/${id}`, { method: "DELETE" });
+    async remove(id) {
+      return fetchJson(`${base}/${encodeURIComponent(id)}`, { method: "DELETE" });
     },
   };
 }
 
+/* ---------- ENTITIES ---------- */
 const entities = {
-  Project: makeEntityRoutes("projects"),
-  TimeEntry: makeEntityRoutes("time-entries"),
-  Hotel: makeEntityRoutes("hotels"),
-};
+  Project: mkEntity("/projects"),
+  TimeEntry: {
+    ...mkEntity("/time-entries"),
+    async delete(id) {
+      return mkEntity("/time-entries").remove(id);
+    },
+  },
+  Hotel: mkEntity("/hotels"),
 
-// ---- Integrations stubs ----
-function notImplemented(name) {
-  return () => {
-    throw new Error(`${name} not implemented (Base44 removed)`);
-  };
-}
-const integrations = {
-  Core: {
-    InvokeLLM: notImplemented("InvokeLLM"),
-    SendEmail: notImplemented("SendEmail"),
-    UploadFile: notImplemented("UploadFile"),
-    GenerateImage: notImplemented("GenerateImage"),
-    ExtractDataFromUploadedFile: notImplemented("ExtractDataFromUploadedFile"),
+  /* ---- Receipts ----
+   * Backend (as implemented earlier):
+   *   GET    /receipts?created_by=...&sort=created_at_desc
+   *   POST   /receipts/upload  (FormData: file, receipt_date, notes?)
+   *   GET    /receipts/:id/file  (binary)
+   *   DELETE /receipts/:id
+   */
+  Receipts: {
+    async list(query = {}, sort = "created_at_desc") {
+      return mkEntity("/receipts").filter(query, sort);
+    },
+    async upload({ file, receipt_date, notes }) {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (receipt_date) fd.append("receipt_date", receipt_date);
+      if (notes != null) fd.append("notes", notes);
+      return fetchJson("/receipts/upload", { method: "POST", body: fd });
+    },
+    fileUrl(id) {
+      // Uses cookies for auth; no need to fetch blob if your server accepts cookie auth
+      return `${BASE}/receipts/${encodeURIComponent(id)}/file`;
+    },
+    async remove(id) {
+      return mkEntity("/receipts").remove(id);
+    },
   },
 };
 
-export const client = { auth, entities, integrations };
+/* ---------- DOMAIN CLIENTS ---------- */
+const Payslips = {
+  async forWeek(weekStart /* yyyy-MM-dd */) {
+    const qs = new URLSearchParams({ week_start: weekStart });
+    return fetchJson(`/payslips/for-week?${qs.toString()}`);
+  },
+  
+};
+
+const WeeklyEarnings = {
+  async forWeek(weekStart /* yyyy-MM-dd */) {
+    const qs = new URLSearchParams({ week_start: weekStart });
+    return fetchJson(`/earnings/for-week?${qs.toString()}`);
+  },
+  async recalculate() {
+    return fetchJson("/earnings/recalculate", { method: "POST" });
+  },
+};
+
+export const client = {
+  baseUrl: BASE,
+  fetchJson,
+  auth,
+  entities,
+  Payslips,
+  WeeklyEarnings,
+};
+
+export default client;

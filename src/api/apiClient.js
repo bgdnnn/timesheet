@@ -6,89 +6,98 @@ const API_BASE =
   (typeof window !== "undefined" && window.__API_BASE__) ||
   "";
 
-function buildURL(path, params = {}) {
-  const url = new URL(
-    path.replace(/^\//, ""),
-    API_BASE || window.location.origin
-  );
+export function buildURL(path, params = {}) {
+  const url = new URL(path.replace(/^\//, ""), API_BASE);
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === null || v === "") continue;
-    if (typeof v === "object") {
-      // flatten {a:1,b:2} -> a=1&b=2 for filter
-      for (const [kk, vv] of Object.entries(v)) {
-        if (vv !== undefined && vv !== null && vv !== "") sp.append(kk, vv);
-      }
-    } else {
-      sp.append(k, v);
-    }
+    sp.set(k, String(v));
   }
   const qs = sp.toString();
   if (qs) url.search = qs;
   return url.toString();
 }
 
-export function getAccessToken() {
-  try {
-    return localStorage.getItem("accessToken") || "";
-  } catch {
-    return "";
-  }
+function authHeaders() {
+  const token =
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("access_token")
+      : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export function setAccessToken(token) {
-  try {
-    if (token) localStorage.setItem("accessToken", token);
-    else localStorage.removeItem("accessToken");
-  } catch {
-    // ignore
-  }
-}
-
-export async function api(
-  path,
-  { method = "GET", headers = {}, body, query } = {}
-) {
-  const token = getAccessToken();
-  const url = buildURL(path, query);
-
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Accept: "application/json",
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: "include", // harmless if backend doesn’t use cookies
-  });
-
-  // Try to parse JSON; fall back to text
+async function handle(res) {
   const text = await res.text();
-  let data;
+  let data = null;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    data = text;
+    /* keep text */
   }
-
   if (!res.ok) {
-    const err = new Error(
-      (data && (data.detail || data.message)) ||
-        `HTTP ${res.status} ${res.statusText}`
-    );
+    const msg = data && data.detail ? data.detail : text || res.statusText;
+    const err = new Error(msg);
     err.status = res.status;
-    err.payload = data;
+    err.body = data || text;
     throw err;
   }
   return data;
 }
 
-/**
- * Helper that turns .filter(queryObj, sortStr) args into query params.
- * Example: filter({created_by: email}, "-created_date") -> ?created_by=email&sort=-created_date
- */
+export async function get(path, params) {
+  const url = buildURL(path, params);
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...authHeaders(),
+    },
+    credentials: "include",
+  });
+  return handle(res);
+}
+
+export async function post(path, body, isForm = false) {
+  const url = buildURL(path);
+  const init = {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+    },
+    credentials: "include",
+    body: isForm ? body : JSON.stringify(body),
+  };
+  if (!isForm) init.headers["Content-Type"] = "application/json";
+  const res = await fetch(url, init);
+  return handle(res);
+}
+
+export async function put(path, body) {
+  const url = buildURL(path);
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  return handle(res);
+}
+
+export async function del(path) {
+  const url = buildURL(path);
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders(),
+    },
+    credentials: "include",
+  });
+  return handle(res);
+}
+
 export function filterQuery(queryObj, sort) {
   const q = { ...(queryObj || {}) };
   if (sort) q.sort = sort;

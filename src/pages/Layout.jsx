@@ -14,6 +14,7 @@ import {
   Download,
   Building,
   Upload,
+  DollarSign,
 } from "lucide-react";
 import { User as UserEntity } from "@/api/entities";
 import { Project } from "@/api/entities";
@@ -29,6 +30,9 @@ const navigationItems = [
   { title: "Week View", urlKey: "WeekView", icon: Calendar },
   { title: "Projects", urlKey: "Projects", icon: Briefcase },
   { title: "Hotels", urlKey: "Hotels", icon: Building },
+  { title: "Receipts", urlKey: "Receipts", icon: Calendar },
+  { title: "Expenses", urlKey: "Expenses", icon: Calendar },
+  { title: "Earnings", urlKey: "Earnings", icon: DollarSign },
 ];
 
 const ExportButton = ({ onExport, onMenuStateChange }) => {
@@ -123,12 +127,8 @@ export default function Layout({ children, currentPageName }) {
   }, [fetchUser]);
 
   const handleLogout = async () => {
-    try {
-      await UserEntity.logout();
-    } finally {
-      if (UserEntity?.login) UserEntity.login();
-      else window.location.href = "/login";
-    }
+    await UserEntity.logout();
+    window.location.assign("/login");
   };
 
   const handleProfileSave = () => {
