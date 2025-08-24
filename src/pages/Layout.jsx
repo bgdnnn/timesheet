@@ -15,6 +15,7 @@ import {
   Building,
   Upload,
   DollarSign,
+  Shield,
 } from "lucide-react";
 import { User as UserEntity } from "@/api/entities";
 import { Project } from "@/api/entities";
@@ -109,6 +110,7 @@ export default function Layout({ children, currentPageName }) {
   const fetchUser = React.useCallback(async () => {
     try {
       const currentUser = await UserEntity.me();
+      console.log("Current user:", currentUser);
       setUser(currentUser);
     } catch (e) {
       // Not logged in → go to login
@@ -121,6 +123,14 @@ export default function Layout({ children, currentPageName }) {
       }
     }
   }, []);
+
+  const navigation = React.useMemo(() => {
+    const nav = [...navigationItems];
+    if (user && user.role === 'admin') {
+        nav.push({ title: "Admin", urlKey: "Admin", icon: Shield });
+    }
+    return nav;
+  }, [user]);
 
   React.useEffect(() => {
     fetchUser();
@@ -347,7 +357,7 @@ export default function Layout({ children, currentPageName }) {
                   </h1>
                 </div>
                 <nav className="flex flex-col space-y-2">
-                  {navigationItems.map((item) => {
+                  {navigation.map((item) => {
                     const url = createPageUrl(item.urlKey);
                     const isActive = location.pathname.startsWith(url);
                     return (
@@ -425,7 +435,7 @@ export default function Layout({ children, currentPageName }) {
               </h1>
             </div>
             <nav className="flex flex-col space-y-2">
-              {navigationItems.map((item) => {
+              {navigation.map((item) => {
                 const url = createPageUrl(item.urlKey);
                 const isActive = location.pathname.startsWith(url);
                 return (

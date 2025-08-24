@@ -9,6 +9,7 @@ import Hotels from "./Hotels";
 import Expenses from "./Expenses";
 import Receipts from "./Receipts";
 import Earnings from "./Earnings";
+import AdminPage from "./Admin";
 
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
@@ -21,6 +22,7 @@ const PAGES = {
     Hotels: Hotels,
 
     Earnings: Earnings,
+    Admin: AdminPage,
     
 }
 
@@ -59,6 +61,7 @@ function PagesContent() {
                 
                 <Route path="/receipts" element={<Receipts />} />
                 <Route path="/earnings" element={<Earnings />} />
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 
             </Routes>
