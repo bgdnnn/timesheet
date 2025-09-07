@@ -21,6 +21,7 @@ if (!window.__API_BASE__) {
   const token = params.get("access_token");
   if (token) {
     localStorage.setItem("access_token", token); // <— IMPORTANT: snake_case
+    window.dispatchEvent(new Event("token-changed"));
     // Remove the hash so we don't repeat this on refresh
     window.history.replaceState(
       null,

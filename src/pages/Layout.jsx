@@ -110,17 +110,12 @@ export default function Layout({ children, currentPageName }) {
   const fetchUser = React.useCallback(async () => {
     try {
       const currentUser = await UserEntity.me();
-      console.log("Current user:", currentUser);
       setUser(currentUser);
     } catch (e) {
-      // Not logged in → go to login
-      if (UserEntity?.loginWithRedirect) {
-        UserEntity.loginWithRedirect(window.location.href);
-      } else if (UserEntity?.login) {
-        UserEntity.login();
-      } else {
-        window.location.href = "/login";
-      }
+      console.error("Failed to fetch user, redirecting to login.", e);
+      // Not logged in → go to login page.
+      // Avoid loginWithRedirect here to prevent loops.
+      window.location.href = "/login";
     }
   }, []);
 
@@ -136,8 +131,11 @@ export default function Layout({ children, currentPageName }) {
     fetchUser();
   }, [fetchUser]);
 
-  const handleLogout = async () => {
-    await UserEntity.logout();
+  const handleLogout = (e) => {
+    e.preventDefault();
+    // Fire-and-forget the logout API call. The backend will handle cookie clearing.
+    UserEntity.logout();
+    // Immediately redirect to the login page for a faster user experience.
     window.location.assign("/login");
   };
 
@@ -414,7 +412,7 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 </button>
                 <button
-                  onClick={handleLogout}
+                  onClick={(e) => handleLogout(e)}
                   className="w-full flex items-center space-x-3 px-4 py-3 mt-2 rounded-lg text-gray-300 hover:bg-black/10 transition-all duration-200"
                 >
                   <LogOut className="h-5 w-5" />
@@ -484,7 +482,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </button>
             <button
-              onClick={handleLogout}
+              onClick={(e) => handleLogout(e)}
               className="w-full flex items-center space-x-3 px-4 py-3 mt-2 rounded-lg text-gray-300 hover:bg-black/10 transition-all duration-200"
             >
               <LogOut className="h-5 w-5" />

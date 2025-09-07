@@ -3,23 +3,24 @@
 const BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 
 function getAccessToken() {
-  return (
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("accessToken") ||
-    null
-  );
+  // Prefer the cookie, fall back to localStorage for older tokens
+  const cookie = document.cookie.split('; ').find(row => row.startsWith('access_token='));
+  if (cookie) {
+    return cookie.split('=')[1];
+  }
+  return localStorage.getItem("access_token") || localStorage.getItem("accessToken");
 }
 
 async function fetchJson(path, { method = "GET", headers = {}, body, signal } = {}) {
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
-  const token = getAccessToken();
+  // Token is now sent via a secure, HttpOnly cookie, so we don't need to add it here.
+  // The browser will handle it automatically.
 
   const resp = await fetch(url, {
     method,
-    credentials: "include",
+    credentials: "include", // This is crucial for sending cookies
     headers: {
       ...(body != null && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body == null || body instanceof FormData ? body : JSON.stringify(body),
@@ -53,22 +54,13 @@ const auth = {
   },
 
   async logout() {
-    console.log("Starting logout process...");
     try {
-      // Use regular fetch as we are expecting a redirect, not JSON
-      const response = await fetch(`${BASE}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-      // After this call, the browser should be redirected by the server.
-      // The code below might not even run if the redirect is immediate.
-      console.log("Backend logout call status:", response.status);
+      await fetchJson("/auth/logout", { method: "POST" });
     } catch (e) {
-      console.error("Backend logout call failed:", e);
+      console.error("Logout failed", e);
     }
-    console.log("Clearing all localStorage.");
+    // Always clear local storage
     localStorage.clear();
-    console.log("Logout process finished.");
   },
 };
 
