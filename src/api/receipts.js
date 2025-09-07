@@ -31,3 +31,11 @@ export async function receiptFileUrl(id) {
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 }
+
+export async function deleteReceipt(id) {
+  const res = await fetch(`${API_BASE}/receipts/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`Receipt delete failed (${res.status})`);
+}
