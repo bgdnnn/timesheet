@@ -37,5 +37,14 @@ export async function deleteReceipt(id) {
     method: "DELETE",
     credentials: "include",
   });
-  if (!res.ok) throw new Error(`Receipt delete failed (${res.status})`);
+  if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+  return true;
+}
+
+export async function listAllReceipts() {
+  const res = await fetch(`${API_BASE}/receipts/all`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`Failed to list all receipts (${res.status})`);
+  return res.json();
 }
