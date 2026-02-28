@@ -98,7 +98,15 @@ function mkEntity(path) {
 
 /* ---------- ENTITIES ---------- */
 const entities = {
-  Project: mkEntity("/projects"),
+  Project: {
+    ...mkEntity("/projects"),
+    async archive(id) {
+        return fetchJson(`/projects/${encodeURIComponent(id)}/archive`, { method: "POST" });
+    },
+    async restore(id) {
+        return fetchJson(`/projects/${encodeURIComponent(id)}/restore`, { method: "POST" });
+    },
+  },
   TimeEntry: {
     ...mkEntity("/time-entries"),
     async delete(id) {

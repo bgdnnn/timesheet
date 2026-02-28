@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
 import { Project } from "@/api/entities";
+import { toast } from "sonner";
 
 const ModalOverlay = ({ children, onClose }) => (
     <motion.div
@@ -78,12 +79,15 @@ export default function ProjectFormModal({ isOpen, onClose, onSave, project }) {
         try {
             if (project) {
                 await Project.update(project.id, projectData);
+                toast.success("Project updated successfully.");
             } else {
                 await Project.create(projectData);
+                toast.success("Project created successfully.");
             }
             onSave();
         } catch (error) {
             console.error("Failed to save project:", error);
+            toast.error("Failed to save project.");
         } finally {
             setIsSaving(false);
         }

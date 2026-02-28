@@ -1,6 +1,6 @@
 // src/pages/Layout.jsx
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import ImportData from "@/components/ImportData";
 import { createPageUrl } from "@/utils";
 import {
@@ -102,6 +102,7 @@ const ExportButton = ({ onExport, onMenuStateChange }) => {
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = React.useState(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -114,10 +115,9 @@ export default function Layout({ children, currentPageName }) {
     } catch (e) {
       console.error("Failed to fetch user, redirecting to login.", e);
       // Not logged in → go to login page.
-      // Avoid loginWithRedirect here to prevent loops.
-      window.location.href = "/login";
+      navigate("/login");
     }
-  }, []);
+  }, [navigate]);
 
   const navigation = React.useMemo(() => {
     const nav = [...navigationItems];
@@ -131,12 +131,10 @@ export default function Layout({ children, currentPageName }) {
     fetchUser();
   }, [fetchUser]);
 
-  const handleLogout = (e) => {
+  const handleLogout = async (e) => {
     e.preventDefault();
-    // Fire-and-forget the logout API call. The backend will handle cookie clearing.
-    UserEntity.logout();
-    // Immediately redirect to the login page for a faster user experience.
-    window.location.assign("/login");
+    await UserEntity.logout();
+    navigate("/login");
   };
 
   const handleProfileSave = () => {
@@ -374,7 +372,7 @@ export default function Layout({ children, currentPageName }) {
                       </Link>
                     );
                   })}
-                </nav>
+                </nav>.
               </div>
               <div className="border-t border-white/20 pt-2">
                 <div className="flex gap-2">
