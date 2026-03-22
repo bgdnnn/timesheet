@@ -42,13 +42,19 @@ const ModalContent = ({ children, onClose, className }) => (
 export default function ProfileModal({ isOpen, onClose, user, onSave }) {
   const [company, setCompany] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [isCalculatorEnabled, setIsCalculatorEnabled] = useState(true);
+  const [employmentType, setEmploymentType] = useState("employed");
+  const [guildTax, setGuildTax] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (user) {
       setCompany(user.company || "");
-      setHourlyRate(user.hourly_rate != null ? String(user.hourly_rate) : "");
+      setHourlyRate(user.wage != null ? String(user.wage) : "");
+      setIsCalculatorEnabled(user.is_calculator_enabled ?? true);
+      setEmploymentType(user.employment_type || "employed");
+      setGuildTax(user.guild_tax != null ? String(user.guild_tax) : "");
     }
   }, [user]);
 
@@ -60,8 +66,11 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
     try {
       await UserApi.updateMyUserData({
         company: company.trim(),
-        hourly_rate:
+        wage:
           hourlyRate === "" ? null : Math.max(0, Number.parseFloat(hourlyRate)),
+        is_calculator_enabled: isCalculatorEnabled,
+        employment_type: employmentType,
+        guild_tax: guildTax === "" ? null : Math.max(0, Number.parseFloat(guildTax)),
       });
       onSave && onSave();
       onClose && onClose();
@@ -117,19 +126,86 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
             />
           </div>
 
-          <div>
-            <Label htmlFor="hourlyRate" className="text-sm md:text-base">Hourly rate (£)</Label>
-            <Input
-              id="hourlyRate"
-              name="hourlyRate"
-              type="number"
-              step="0.50"
-              min="0"
-              value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
-              className="mt-2 bg-white/10 border-white/20 text-sm md:text-base h-9 md:h-10"
+          <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-xl border border-white/10">
+            <input
+              id="isCalculatorEnabled"
+              type="checkbox"
+              checked={isCalculatorEnabled}
+              onChange={(e) => setIsCalculatorEnabled(e.target.checked)}
+              className="w-5 h-5 rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500/50"
             />
+            <div className="flex flex-col">
+              <Label htmlFor="isCalculatorEnabled" className="text-sm font-bold cursor-pointer">
+                Enable Wage Calculator
+              </Label>
+              <span className="text-[10px] text-gray-400">
+                Show earnings, taxes, and payslip summary
+              </span>
+            </div>
           </div>
+
+          {isCalculatorEnabled && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-4"
+            >
+              <div>
+                <Label className="text-sm font-bold mb-2 block">Employment Type</Label>
+                <div className="flex gap-4 p-1 bg-white/5 rounded-lg border border-white/10">
+                   <button
+                    type="button"
+                    onClick={() => setEmploymentType("employed")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "employed" ? "bg-cyan-500 text-black" : "text-gray-400 hover:text-white"}`}
+                   >
+                     Employed
+                   </button>
+                   <button
+                    type="button"
+                    onClick={() => setEmploymentType("self_employed")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "self_employed" ? "bg-cyan-500 text-black" : "text-gray-400 hover:text-white"}`}
+                   >
+                     Self-Employed
+                   </button>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="hourlyRate" className="text-sm md:text-base">Hourly rate (£)</Label>
+                <Input
+                  id="hourlyRate"
+                  name="hourlyRate"
+                  type="number"
+                  step="0.50"
+                  min="0"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(e.target.value)}
+                  className="mt-2 bg-white/10 border-white/20 text-sm md:text-base h-9 md:h-10"
+                />
+              </div>
+
+              {employmentType === "self_employed" && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Label htmlFor="guildTax" className="text-sm md:text-base">Guild Tax (£ per week)</Label>
+                  <Input
+                    id="guildTax"
+                    name="guildTax"
+                    type="number"
+                    step="0.10"
+                    min="0"
+                    value={guildTax}
+                    onChange={(e) => setGuildTax(e.target.value)}
+                    placeholder="e.g. 15.00"
+                    className="mt-2 bg-white/10 border-white/20 text-sm md:text-base h-9 md:h-10"
+                  />
+                </motion.div>
+              )}
+            </motion.div>
+          )}
 
           <div className="flex justify-end pt-4">
             <Button

@@ -195,11 +195,13 @@ export default function TimeEntryModal({
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent className="bg-gray-800/80 backdrop-blur-lg border-white/20 text-white">
-                {sortedProjects.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)} className="text-sm md:text-base">
-                    {p.name}
-                  </SelectItem>
-                ))}
+                {sortedProjects
+                  .filter((p) => !p.archived || String(p.id) === String(projectId))
+                  .map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)} className="text-sm md:text-base">
+                      {p.name} {p.archived && <span className="text-xs text-gray-400 opacity-70 ml-1">(Archived)</span>}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

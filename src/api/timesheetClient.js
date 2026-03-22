@@ -144,31 +144,27 @@ const entities = {
 };
 
 /* ---------- DOMAIN CLIENTS ---------- */
-const Payslips = {
-  async forWeek(weekStart /* yyyy-MM-dd */) {
-    const qs = new URLSearchParams({ week_start: weekStart });
-    return fetchJson(`/payslips/for-week?${qs.toString()}`);
-  },
-  
-};
-
-const WeeklyEarnings = {
-  async forWeek(weekStart /* yyyy-MM-dd */) {
-    const qs = new URLSearchParams({ week_start: weekStart });
-    return fetchJson(`/earnings/for-week?${qs.toString()}`);
-  },
-  async recalculate() {
-    return fetchJson("/earnings/recalculate", { method: "POST" });
-  },
-};
 
 export const client = {
   baseUrl: BASE,
   fetchJson,
   auth,
   entities,
-  Payslips,
-  WeeklyEarnings,
+  earnings: {
+    async forWeek(weekStart /* yyyy-MM-dd */) {
+      const qs = new URLSearchParams({ week_start: weekStart });
+      return fetchJson(`/earnings/for-week?${qs.toString()}`);
+    },
+    async recalculate() {
+      return fetchJson("/earnings/recalculate", { method: "POST" });
+    },
+    async calculateWeek(payload) {
+      return fetchJson("/earnings/calculate-week", { method: "POST", body: payload });
+    },
+    async updateWeekWage(payload) {
+      return fetchJson("/earnings/for-week", { method: "PATCH", body: payload });
+    },
+  },
 };
 
 export default client;

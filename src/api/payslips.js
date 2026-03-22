@@ -30,6 +30,32 @@ export async function uploadPayslip({ week_start, file }) {
   return res.json();
 }
 
+export async function manualEntry(data) {
+  let res = await fetch(`${API_BASE}/payslips/manual-entry`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 401) {
+    await warmUpSession();
+    res = await fetch(`${API_BASE}/payslips/manual-entry`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+  }
+
+  if (!res.ok) throw new Error(`Manual payslip entry failed (${res.status})`);
+  return res.json();
+}
+
 export async function getPayslipForWeek(week_start) {
   let res = await fetch(
     `${API_BASE}/payslips/for-week?week_start=${week_start}`,

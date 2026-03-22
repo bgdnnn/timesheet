@@ -36,7 +36,7 @@ function bucketData(json, filename = "") {
 }
 
 async function upsertProjects(importProjects) {
-  const current = await Project.filter({}, "-created_date");
+  const current = await Project.filter({ archived: false }, "-created_date");
   const byName = new Map(current.map(p => [p.name.trim().toLowerCase(), p]));
   for (const p of importProjects) {
     const name = (p.project_name || p.name || "").trim();
@@ -56,7 +56,7 @@ async function upsertProjects(importProjects) {
       byName.set(name.toLowerCase(), created);
     }
   }
-  const refreshed = await Project.filter({}, "-created_date");
+  const refreshed = await Project.filter({ archived: false }, "-created_date");
   return new Map(refreshed.map(p => [p.name, p.id]));
 }
 

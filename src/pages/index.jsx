@@ -5,6 +5,7 @@ import Hotels from "./Hotels";
 import Expenses from "./Expenses";
 import Receipts from "./Receipts";
 import Earnings from "./Earnings";
+import PayslipFiles from "./PayslipFiles";
 import AdminPage from "./Admin";
 import LoginPage from "./Login";
 
@@ -32,6 +33,7 @@ function MainApp() {
                 <Route path="/expenses" element={<Expenses />} />
                 <Route path="/receipts" element={<Receipts />} />
                 <Route path="/earnings" element={<Earnings />} />
+                <Route path="/payslips" element={<PayslipFiles />} />
                 <Route path="/admin" element={<AdminPage />} />
             </Routes>
         </Layout>

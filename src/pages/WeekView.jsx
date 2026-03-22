@@ -1,7 +1,6 @@
 // src/pages/WeekView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Project, TimeEntry, Hotel, User, Payslips, Receipts, WeeklyEarnings } from "@/api/entities.js";
-import { uploadPayslip } from "@/api/payslips.js";
+import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings } from "@/api/entities.js";
 import { Button } from "@/components/ui/button.jsx";
 import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw } from "lucide-react";
 import { format, startOfWeek as fnsStartOfWeek, addDays, subDays, isSameDay } from "date-fns";
@@ -10,6 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar.jsx";
 import TimeEntryModal from "@/components/week-view/TimeEntryModal.jsx";
 import WeekSummary from "@/components/week-view/WeekSummary.jsx";
+import PayslipManualEntryModal from "@/components/payslips/PayslipManualEntryModal.jsx";
+import ProfileModal from "@/components/profile/ProfileModal.jsx";
 
 const GlassCard = ({ children, className = "" }) => (
   <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg ${className}`}>
@@ -30,6 +31,9 @@ export default function WeekView() {
   const [weekEarnings, setWeekEarnings] = useState(null);
   const [receiptsByDay, setReceiptsByDay] = useState({}); // { 'yyyy-MM-dd': count }
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [tempPayslipData, setTempPayslipData] = useState(null);
 
   const inFlightRef = useRef(false);
 
@@ -44,13 +48,13 @@ export default function WeekView() {
       setUser(currentUser);
 
       const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings] = await Promise.all([
-        Project.filter({ created_by: currentUser.email }),
+        Project.filter({ archived: null }),
         TimeEntry.filter({ created_by: currentUser.email }),
         Hotel.filter({ created_by: currentUser.email }, "name"),
         Payslips.forWeek(format(weekStart, "yyyy-MM-dd")),
         // pull all user's receipts, sort server-side desc if your API supports it
         Receipts.list({ created_by: currentUser.email }, "created_at_desc"),
-        WeeklyEarnings.forWeek(format(weekStart, "yyyy-MM-dd")),
+        Earnings.forWeek(format(weekStart, "yyyy-MM-dd")),
       ]);
 
       const lastByProject = {};
@@ -98,28 +102,84 @@ export default function WeekView() {
     fetchData();
   }, [fetchData]);
 
-  const handlePayslipUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      await uploadPayslip({ week_start: format(weekStart, "yyyy-MM-dd"), file });
-      await fetchData(); // Refresh data after upload
-    } catch (error) {
-      console.error("Payslip upload failed:", error);
-      // Optionally, show an error message to the user
+  // Onboarding reminder for new users
+  useEffect(() => {
+    if (user && !localStorage.getItem("has_seen_onboarding")) {
+      const needsEmployedSetup = user.employment_type === "employed" && !user.has_payslip;
+      const needsSelfEmployedSetup = user.employment_type === "self_employed" && (!user.wage || !user.company);
+      
+      if (needsEmployedSetup || needsSelfEmployedSetup) {
+        const timer = setTimeout(() => {
+          if (confirm("Welcome! To get accurate calculations, please complete your setup (Enter a payslip or set your wage). Would you like to do it now?")) {
+            if (user.employment_type === "employed") {
+                setIsManualEntryModalOpen(true);
+            } else {
+                setIsProfileModalOpen(true);
+            }
+          }
+          localStorage.setItem("has_seen_onboarding", "true");
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
     }
-  };
+  }, [user]);
+
+
 
   const handleRecalculate = async () => {
+    if (!user?.wage) {
+      if (confirm("You haven't set your hourly wage yet. Earnings cannot be calculated accurately without it. Would you like to set it now in your profile?")) {
+        setIsProfileModalOpen(true);
+      }
+      return;
+    }
+
+    if (user?.employment_type === "employed" && !user?.has_payslip) {
+        if (confirm("For accurate historical and YTD calculations in Employed mode, you need to enter at least one payslip manually. Would you like to enter one now?")) {
+            setIsManualEntryModalOpen(true);
+            return;
+        }
+    }
+
     setIsCalculating(true);
     try {
-        await WeeklyEarnings.recalculate();
+        await Earnings.recalculate();
         await fetchData(); // Refresh data after recalculation
     } catch (error) {
         console.error("Recalculation failed:", error);
+    } finally {
+        setIsCalculating(false);
+    }
+  };
+
+  const handleCalculateWeek = async () => {
+    setIsCalculating(true);
+    try {
+        await Earnings.calculateWeek(format(weekStart, "yyyy-MM-dd"));
+        await fetchData(); // Refresh data after calculation
+    } catch (error) {
+        console.error("Single week calculation failed:", error);
         // Optionally, show an error message to the user
     } finally {
         setIsCalculating(false);
+    }
+  };
+
+  const handleUploadPayslip = async (file) => {
+    try {
+      const res = await Payslips.uploadPayslip({
+        week_start: format(weekStart, "yyyy-MM-dd"),
+        file,
+      });
+      if (res && res.data) {
+        setTempPayslipData(res.data);
+        setIsManualEntryModalOpen(true);
+      } else {
+        await fetchData(); // Refresh data after upload
+      }
+    } catch (error) {
+      console.error("Payslip upload failed:", error);
+      // Optionally, show an error message to the user
     }
   };
 
@@ -183,29 +243,77 @@ export default function WeekView() {
         )}
       </AnimatePresence>
 
+      {/* Profile Modal for setting wage */}
+      <AnimatePresence>
+        {isProfileModalOpen && (
+          <ProfileModal
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+            user={user}
+            onSave={async () => {
+              await fetchData();
+              setIsProfileModalOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Manual Payslip Entry Modal */}
+      {isManualEntryModalOpen && (
+        <PayslipManualEntryModal
+          isOpen={isManualEntryModalOpen}
+          onClose={() => {
+            setIsManualEntryModalOpen(false);
+            setTempPayslipData(null);
+          }}
+          onSave={handleEntrySave} // Reuse handleEntrySave to refetch data
+          initialData={tempPayslipData || weekPayslip} // Pass existing payslip data for pre-filling
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
         <div className="text-center md:text-left">
           <h1 className="text-2xl md:text-3xl font-bold">Week View</h1>
-          <p className="text-sm md:text-base text-gray-300">
-            {format(weekStart, "MMM d")} - {format(addDays(weekStart, 6), "MMM, d yyyy")}
-          </p>
+          <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
+            <p className="text-sm md:text-base text-gray-300">
+              {format(weekStart, "MMM d")} - {format(addDays(weekStart, 6), "MMM, d yyyy")}
+            </p>
+            {weekEarnings?.tax_week && (
+              <span className="bg-cyan-500/20 text-cyan-400 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-cyan-500/30 whitespace-nowrap">
+                Tax Week {weekEarnings.tax_week}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center justify-center md:justify-end gap-2 md:gap-4">
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 md:gap-4">
           <GlassCard className="flex items-center p-2 rounded-xl">
             <span className="text-xs md:text-sm px-2 md:px-4">
               Total: <span className="font-bold text-sm md:text-lg">{totalWeekHours.toFixed(1)}h</span>
             </span>
           </GlassCard>
-          <Button
-            onClick={handleRecalculate}
-            disabled={isCalculating}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
-          >
-            <RefreshCw className={`h-4 w-4 md:h-5 md:w-5 ${isCalculating ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isCalculating ? 'Recalculating...' : 'Recalculate'}</span>
-            <span className="sm:hidden">Recalc</span>
-          </Button>
+          {user?.is_calculator_enabled && (
+            <>
+              <Button
+                onClick={handleRecalculate}
+                disabled={isCalculating}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
+              >
+                <RefreshCw className={`h-4 w-4 md:h-5 md:w-5 ${isCalculating ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isCalculating ? 'Recalculating...' : 'Recalculate All'}</span>
+                <span className="sm:hidden">Recalc All</span>
+              </Button>
+              <Button
+                onClick={handleCalculateWeek}
+                disabled={isCalculating} // Use the same calculating state for now
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
+              >
+                <RefreshCw className={`h-4 w-4 md:h-5 md:w-5 ${isCalculating ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isCalculating ? 'Calculating...' : 'Calculate Week'}</span>
+                <span className="sm:hidden">Calc Week</span>
+              </Button>
+            </>
+          )}
           <Button
             onClick={() => openModalForDate(new Date())}
             className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
@@ -311,13 +419,12 @@ export default function WeekView() {
         user={user}
         payslip={weekPayslip}
         earnings={weekEarnings}
-        onReplacePayslip={() => {
-          document.getElementById("hidden-payslip-input")?.click();
-        }}
+        onReplacePayslip={() => setIsManualEntryModalOpen(true)}
+        onUploadPayslip={handleUploadPayslip}
+        onRefresh={fetchData}
       />
 
-      {/* optional hidden input hook */}
-      <input id="hidden-payslip-input" type="file" accept="application/pdf,image/*" className="hidden" onChange={handlePayslipUpload} />
+
     </div>
   );
 }

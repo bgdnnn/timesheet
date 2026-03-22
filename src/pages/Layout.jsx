@@ -16,6 +16,7 @@ import {
   Upload,
   DollarSign,
   Shield,
+  FileText,
 } from "lucide-react";
 import { User as UserEntity } from "@/api/entities";
 import { Project } from "@/api/entities";
@@ -34,6 +35,7 @@ const navigationItems = [
   { title: "Receipts", urlKey: "Receipts", icon: Calendar },
   { title: "Expenses", urlKey: "Expenses", icon: Calendar },
   { title: "Earnings", urlKey: "Earnings", icon: DollarSign },
+  { title: "Payslips", urlKey: "payslips", icon: FileText },
 ];
 
 const ExportButton = ({ onExport, onMenuStateChange }) => {
@@ -194,7 +196,7 @@ export default function Layout({ children, currentPageName }) {
     if (entityName === "TimeEntry") {
       try {
         const [projectsAll, hotelsAll] = await Promise.all([
-          Project.filter({ created_by: user.email }, "name"),
+          Project.filter({ archived: false }, "name"),
           Hotel.filter({ created_by: user.email }, "name"),
         ]);
         projectById = new Map(projectsAll.map((p) => [p.id, p.name]));
