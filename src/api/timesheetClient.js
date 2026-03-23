@@ -3,68 +3,74 @@
 const BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 
 function getAccessToken() {
-  // Prefer the cookie, fall back to localStorage for older tokens
+  const token = localStorage.getItem("ts_token");
+  if (token) return token;
+  
   const cookie = document.cookie.split('; ').find(row => row.startsWith('access_token='));
-  if (cookie) {
-    return cookie.split('=')[1];
-  }
-  return localStorage.getItem("access_token") || localStorage.getItem("accessToken");
+  return cookie ? cookie.split('=')[1] : "";
 }
 
 async function fetchJson(path, { method = "GET", headers = {}, body, signal } = {}) {
   const url = path.startsWith("http") ? path : `${BASE}${path}`;
-  // Token is now sent via a secure, HttpOnly cookie, so we don't need to add it here.
-  // The browser will handle it automatically.
+  
+  const token = getAccessToken();
 
-  const resp = await fetch(url, {
+  const options = {
     method,
-    credentials: "include", // This is crucial for sending cookies
+    credentials: "include",
     headers: {
       ...(body != null && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body == null || body instanceof FormData ? body : JSON.stringify(body),
     signal,
-  });
+  };
 
-  if (!resp.ok) {
-    let detail = "";
-    try { detail = await resp.text(); } catch {}
-    throw new Error(`HTTP ${resp.status} ${resp.statusText}${detail ? ` — ${detail}` : ""}`);
+  try {
+    const resp = await fetch(url, options);
+
+    if (!resp.ok) {
+      if (resp.status === 401) {
+          console.warn("Unauthorized: Session likely expired. Redirecting to login.");
+          // Clear any local tokens
+          localStorage.removeItem("ts_token");
+          // Force redirect to login page if not already there
+          if (!window.location.pathname.includes("/login")) {
+              window.location.assign("/login");
+          }
+      }
+      const text = await resp.text();
+      throw new Error(`HTTP ${resp.status}: ${text}`);
+    }
+
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("application/json")) return await resp.json();
+    return await resp.text();
+  } catch (err) {
+    console.error(`Fetch failure for ${path}:`, err);
+    throw err;
   }
-
-  const ct = resp.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return await resp.json();
-  return await resp.text();
 }
 
-/* ---------- AUTH ---------- */
 const auth = {
   async me() {
     return fetchJson("/me");
   },
-
   async updateMyUserData(payload) {
     return fetchJson("/me", { method: "PUT", body: payload });
   },
-
   loginWithRedirect(returnTo) {
     const rt = encodeURIComponent(returnTo || window.location.href);
     window.location.assign(`${BASE}/auth/google/login?returnTo=${rt}`);
   },
-
   async logout() {
-    try {
-      await fetchJson("/auth/logout", { method: "POST" });
-    } catch (e) {
-      console.error("Logout failed", e);
-    }
-    // Always clear local storage
+    try { await fetchJson("/auth/logout", { method: "POST" }); } catch {}
     localStorage.clear();
+    window.location.assign("/login");
   },
 };
 
-/* ---------- GENERIC ENTITY MAKER ---------- */
 function mkEntity(path) {
   const base = path.replace(/\/+$/, "");
   return {
@@ -96,74 +102,58 @@ function mkEntity(path) {
   };
 }
 
-/* ---------- ENTITIES ---------- */
-const entities = {
-  Project: {
-    ...mkEntity("/projects"),
-    async archive(id) {
-        return fetchJson(`/projects/${encodeURIComponent(id)}/archive`, { method: "POST" });
-    },
-    async restore(id) {
-        return fetchJson(`/projects/${encodeURIComponent(id)}/restore`, { method: "POST" });
-    },
-  },
-  TimeEntry: {
-    ...mkEntity("/time-entries"),
-    async delete(id) {
-      return mkEntity("/time-entries").remove(id);
-    },
-  },
-  Hotel: mkEntity("/hotels"),
-
-  /* ---- Receipts ----
-   * Backend (as implemented earlier):
-   *   GET    /receipts?created_by=...&sort=created_at_desc
-   *   POST   /receipts/upload  (FormData: file, receipt_date, notes?)
-   *   GET    /receipts/:id/file  (binary)
-   *   DELETE /receipts/:id
-   */
-  Receipts: {
-    async list(query = {}, sort = "created_at_desc") {
-      return mkEntity("/receipts").filter(query, sort);
-    },
-    async upload({ file, receipt_date, notes }) {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (receipt_date) fd.append("receipt_date", receipt_date);
-      if (notes != null) fd.append("notes", notes);
-      return fetchJson("/receipts/upload", { method: "POST", body: fd });
-    },
-    fileUrl(id) {
-      // Uses cookies for auth; no need to fetch blob if your server accepts cookie auth
-      return `${BASE}/receipts/${encodeURIComponent(id)}/file`;
-    },
-    async remove(id) {
-      return mkEntity("/receipts").remove(id);
-    },
-  },
-};
-
-/* ---------- DOMAIN CLIENTS ---------- */
-
 export const client = {
   baseUrl: BASE,
   fetchJson,
   auth,
-  entities,
+  entities: {
+    Project: {
+      ...mkEntity("/projects"),
+      async archive(id) { return fetchJson(`/projects/${encodeURIComponent(id)}/archive`, { method: "POST" }); },
+      async restore(id) { return fetchJson(`/projects/${encodeURIComponent(id)}/restore`, { method: "POST" }); },
+    },
+    TimeEntry: {
+      ...mkEntity("/time-entries"),
+      async delete(id) { return mkEntity("/time-entries").remove(id); },
+    },
+    Hotel: mkEntity("/hotels"),
+    Receipts: {
+      async list(query = {}, sort = "created_at_desc") { return mkEntity("/receipts").filter(query, sort); },
+      async upload({ file, receipt_date, notes }) {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (receipt_date) fd.append("receipt_date", receipt_date);
+        if (notes != null) fd.append("notes", notes);
+        return fetchJson("/receipts/upload", { method: "POST", body: fd });
+      },
+      fileUrl(id) { return `${BASE}/receipts/${encodeURIComponent(id)}/file`; },
+      async remove(id) { return mkEntity("/receipts").remove(id); },
+    },
+    Trainings: {
+      async list() { return fetchJson("/trainings"); },
+      async upload({ file, name, expiry_date }) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("name", name);
+        fd.append("expiry_date", expiry_date);
+        return fetchJson("/trainings/upload", { method: "POST", body: fd });
+      },
+      fileUrl(id) { return `${BASE}/trainings/${encodeURIComponent(id)}/file`; },
+      downloadUrl(id) { return `${BASE}/trainings/${encodeURIComponent(id)}/download`; },
+      async update(id, data) {
+        return fetchJson(`/trainings/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
+      },
+      async remove(id) { return fetchJson(`/trainings/${encodeURIComponent(id)}`, { method: "DELETE" }); },
+    },
+  },
   earnings: {
-    async forWeek(weekStart /* yyyy-MM-dd */) {
+    async forWeek(weekStart) {
       const qs = new URLSearchParams({ week_start: weekStart });
       return fetchJson(`/earnings/for-week?${qs.toString()}`);
     },
-    async recalculate() {
-      return fetchJson("/earnings/recalculate", { method: "POST" });
-    },
-    async calculateWeek(payload) {
-      return fetchJson("/earnings/calculate-week", { method: "POST", body: payload });
-    },
-    async updateWeekWage(payload) {
-      return fetchJson("/earnings/for-week", { method: "PATCH", body: payload });
-    },
+    async recalculate() { return fetchJson("/earnings/recalculate", { method: "POST" }); },
+    async calculateWeek(payload) { return fetchJson("/earnings/calculate-week", { method: "POST", body: payload }); },
+    async updateWeekWage(payload) { return fetchJson("/earnings/for-week", { method: "PATCH", body: payload }); },
   },
 };
 

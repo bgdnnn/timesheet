@@ -132,7 +132,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
               type="checkbox"
               checked={isCalculatorEnabled}
               onChange={(e) => setIsCalculatorEnabled(e.target.checked)}
-              className="w-5 h-5 rounded border-white/20 bg-white/10 text-cyan-500 focus:ring-cyan-500/50"
+              className="w-5 h-5 rounded border-white/20 bg-white/10 text-sky-500 focus:ring-sky-500/50"
             />
             <div className="flex flex-col">
               <Label htmlFor="isCalculatorEnabled" className="text-sm font-bold cursor-pointer">
@@ -157,14 +157,14 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
                    <button
                     type="button"
                     onClick={() => setEmploymentType("employed")}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "employed" ? "bg-cyan-500 text-black" : "text-gray-400 hover:text-white"}`}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "employed" ? "bg-sky-500 text-black" : "text-gray-400 hover:text-white"}`}
                    >
                      Employed
                    </button>
                    <button
                     type="button"
                     onClick={() => setEmploymentType("self_employed")}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "self_employed" ? "bg-cyan-500 text-black" : "text-gray-400 hover:text-white"}`}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${employmentType === "self_employed" ? "bg-sky-500 text-black" : "text-gray-400 hover:text-white"}`}
                    >
                      Self-Employed
                    </button>
@@ -211,7 +211,7 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
             <Button
               type="submit"
               disabled={isSaving}
-              className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-lg px-4 md:px-6 py-2 transition-all text-sm md:text-base"
+              className="bg-sky-500 hover:bg-sky-600 text-black font-bold rounded-lg px-4 md:px-6 py-2 transition-all text-sm md:text-base"
             >
               {isSaving ? "Saving..." : "Save Profile"}
             </Button>

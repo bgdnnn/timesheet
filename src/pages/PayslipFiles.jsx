@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { client } from "@/api/timesheetClient";
 import { AnimatePresence, motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
 
 const GlassCard = ({ children, className = "" }) => (
   <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg p-6 ${className}`}>
@@ -105,6 +106,7 @@ export default function PayslipFiles() {
       setFiles(data);
     } catch (err) {
       console.error("Failed to fetch payslip files:", err);
+      toast.error("Failed to load archive");
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,7 @@ export default function PayslipFiles() {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!selectedFile || !taxWeek || !taxYear) {
-        alert("Please fill all fields");
+        toast.error("Please fill all fields");
         return;
     }
     
@@ -133,6 +135,7 @@ export default function PayslipFiles() {
         method: "POST",
         body: formData
       });
+      toast.success("Payslip archived");
       setIsUploadModalOpen(false);
       setSelectedFile(null);
       setTaxWeek("");
@@ -140,7 +143,7 @@ export default function PayslipFiles() {
       fetchFiles();
     } catch (err) {
       console.error("Upload failed:", err);
-      alert("Upload failed. Ensure it's a PDF.");
+      toast.error("Upload failed");
     } finally {
       setIsUpload(false);
     }
@@ -188,6 +191,7 @@ export default function PayslipFiles() {
     }
 
     setBulkProgress({ current: selectedFiles.length, total: selectedFiles.length, status: "Complete!" });
+    toast.success("Bulk upload finished");
     setTimeout(() => {
         setIsUpload(false);
         setBulkProgress({ current: 0, total: 0, status: "" });
@@ -199,20 +203,27 @@ export default function PayslipFiles() {
     if (!confirm("Are you sure you want to delete this payslip?")) return;
     try {
       await client.fetchJson(`/payslip-files/${id}`, { method: "DELETE" });
+      toast.success("Deleted");
       fetchFiles();
     } catch (err) {
       console.error("Delete failed:", err);
+      toast.error("Delete failed");
     }
   };
 
   const handleAction = async (file, action = "view") => {
+    if (action === "download") {
+        if (!window.confirm(`Download payslip "${file.filename}"?`)) return;
+    }
+
     if (isMobile && action === "view") {
-        // On mobile, opening the direct API URL in a new tab is the most reliable way 
-        // to trigger the native PDF viewer (Chrome/Safari)
+        toast.info("Opening payslip...");
         const url = `${client.baseUrl}/payslip-files/${file.id}/view`;
         window.open(url, "_blank");
         return;
     }
+
+    const toastId = toast.loading(action === "view" ? "Loading viewer..." : "Preparing download...");
 
     try {
       const response = await fetch(`${client.baseUrl}/payslip-files/${file.id}/${action}`, {
@@ -231,14 +242,16 @@ export default function PayslipFiles() {
           document.body.appendChild(link);
           link.click();
           link.remove();
+          toast.success("Download started", { id: toastId });
           setTimeout(() => window.URL.revokeObjectURL(url), 100);
       } else {
           setViewPdfUrl(url);
           setIsViewModalOpen(true);
+          toast.dismiss(toastId);
       }
     } catch (err) {
       console.error(`${action} failed:`, err);
-      alert("Action failed. Please try again.");
+      toast.error("Error occurred", { id: toastId });
     }
   };
 
@@ -325,7 +338,7 @@ export default function PayslipFiles() {
             <select 
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500/50"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500/50"
             >
                 <option value="" className="bg-gray-900">All Years</option>
                 {uniqueYears.map(y => (

@@ -6,6 +6,7 @@ export const Project   = client.entities.Project;
 export const TimeEntry = client.entities.TimeEntry;
 export const Hotel     = client.entities.Hotel;
 export const Receipts  = client.entities.Receipts;
+export const Trainings = client.entities.Trainings;
 export const Payslips  = {
   uploadPayslip,
   manualEntry,

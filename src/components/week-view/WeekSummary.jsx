@@ -115,7 +115,7 @@ export default function WeekSummary(props) {
             {format(weekStart, "dd LLL yyyy")}
           </div>
           {earnings?.tax_week && (
-            <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider mt-0.5">
+            <div className="text-[10px] text-sky-400 font-bold uppercase tracking-wider mt-0.5">
               Tax Week {earnings.tax_week}
             </div>
           )}
@@ -130,7 +130,7 @@ export default function WeekSummary(props) {
 
         <div className="col-span-1">
           <div className="text-xs text-gray-300 mb-1">Hourly Rate (£)</div>
-          <div className={`rounded-lg bg-white/10 border border-white/20 px-3 py-2 flex items-center justify-between group ${earnings?.is_manual_wage ? 'border-cyan-500/50' : ''}`}>
+          <div className={`rounded-lg bg-white/10 border border-white/20 px-3 py-2 flex items-center justify-between group ${earnings?.is_manual_wage ? 'border-sky-500/50' : ''}`}>
             {isEditingWage ? (
               <div className="flex items-center gap-1 w-full">
                 <input
@@ -159,7 +159,7 @@ export default function WeekSummary(props) {
             )}
           </div>
           {earnings?.is_manual_wage && !isEditingWage && (
-            <div className="text-[9px] text-cyan-400 mt-1 uppercase font-bold opacity-70">Manual Override</div>
+            <div className="text-[9px] text-sky-400 mt-1 uppercase font-bold opacity-70">Manual Override</div>
           )}
         </div>
 

@@ -103,7 +103,7 @@ export default function HotelFormModal({ isOpen, onClose, onSave, hotel }) {
                         <Button 
                             type="submit" 
                             disabled={isSaving} 
-                            className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-lg px-4 md:px-6 py-2 transition-all text-sm md:text-base"
+                            className="bg-sky-500 hover:bg-sky-600 text-black font-bold rounded-lg px-4 md:px-6 py-2 transition-all text-sm md:text-base"
                         >
                             {isSaving ? "Saving..." : "Save Hotel"}
                         </Button>

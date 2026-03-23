@@ -1,9 +1,9 @@
 // src/pages/WeekView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings } from "@/api/entities.js";
+import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings, Trainings } from "@/api/entities.js";
 import { Button } from "@/components/ui/button.jsx";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw } from "lucide-react";
-import { format, startOfWeek as fnsStartOfWeek, addDays, subDays, isSameDay } from "date-fns";
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw, Award } from "lucide-react";
+import { format, startOfWeek as fnsStartOfWeek, addDays, subDays, isSameDay, subMonths } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.jsx";
 import { Calendar } from "@/components/ui/calendar.jsx";
@@ -30,6 +30,7 @@ export default function WeekView() {
   const [weekPayslip, setWeekPayslip] = useState(null);
   const [weekEarnings, setWeekEarnings] = useState(null);
   const [receiptsByDay, setReceiptsByDay] = useState({}); // { 'yyyy-MM-dd': count }
+  const [trainingsByDay, setTrainingsByDay] = useState({}); // { 'yyyy-MM-dd': [trainingNames] }
   const [isCalculating, setIsCalculating] = useState(false);
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -44,53 +45,81 @@ export default function WeekView() {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
+      // 1. Fetch User First
       const currentUser = await User.me();
+      if (!currentUser) throw new Error("No user found");
       setUser(currentUser);
 
-      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings] = await Promise.all([
+      // 2. Fetch Dependent Data
+      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings, fetchedTrainings] = await Promise.all([
         Project.filter({ archived: null }),
         TimeEntry.filter({ created_by: currentUser.email }),
         Hotel.filter({ created_by: currentUser.email }, "name"),
         Payslips.forWeek(format(weekStart, "yyyy-MM-dd")),
-        // pull all user's receipts, sort server-side desc if your API supports it
         Receipts.list({ created_by: currentUser.email }, "created_at_desc"),
         Earnings.forWeek(format(weekStart, "yyyy-MM-dd")),
+        Trainings.list(),
       ]);
 
-      const lastByProject = {};
-      fetchedEntries.forEach((e) => {
-        const d = new Date(e.date);
-        if (!lastByProject[e.project_id] || d > lastByProject[e.project_id]) {
-          lastByProject[e.project_id] = d;
-        }
-      });
-      const sortedProjects = [...fetchedProjects].sort((a, b) => {
-        const da = lastByProject[a.id];
-        const db = lastByProject[b.id];
-        if (da && db) return db.getTime() - da.getTime();
-        if (da) return -1;
-        if (db) return 1;
-        return (a.name || "").localeCompare(b.name || "");
-      });
+      if (fetchedProjects) {
+          const lastByProject = {};
+          fetchedEntries.forEach((e) => {
+            const d = new Date(e.date);
+            if (!lastByProject[e.project_id] || d > lastByProject[e.project_id]) {
+              lastByProject[e.project_id] = d;
+            }
+          });
+          const sortedProjects = [...fetchedProjects].sort((a, b) => {
+            const da = lastByProject[a.id];
+            const db = lastByProject[b.id];
+            if (da && db) return db.getTime() - da.getTime();
+            if (da) return -1;
+            if (db) return 1;
+            return (a.name || "").localeCompare(b.name || "");
+          });
+          setProjects(sortedProjects);
+      }
 
-      // build receipts count map for current week
-      const start = weekStart;
-      const end = addDays(weekStart, 7);
-      const byDay = {};
-      (fetchedReceipts || []).forEach((r) => {
-        const d = new Date(r.receipt_date || r.created_at);
-        if (d >= start && d < end) {
-          const key = format(d, "yyyy-MM-dd");
-          byDay[key] = (byDay[key] || 0) + 1;
-        }
-      });
-
-      setProjects(sortedProjects);
-      setAllEntries(fetchedEntries);
-      setHotels(fetchedHotels);
+      if (fetchedEntries) setAllEntries(fetchedEntries);
+      if (fetchedHotels) setHotels(fetchedHotels);
       setWeekPayslip(fetchedPayslip || null);
       setWeekEarnings(fetchedWeeklyEarnings || null);
-      setReceiptsByDay(byDay);
+
+      if (fetchedReceipts) {
+          const start = weekStart;
+          const end = addDays(weekStart, 7);
+          const byDay = {};
+          fetchedReceipts.forEach((r) => {
+            const d = new Date(r.receipt_date || r.created_at);
+            if (d >= start && d < end) {
+              const key = format(d, "yyyy-MM-dd");
+              byDay[key] = (byDay[key] || 0) + 1;
+            }
+          });
+          setReceiptsByDay(byDay);
+      }
+
+      if (fetchedTrainings) {
+          const trainByDay = {};
+          const start = weekStart;
+          const end = addDays(weekStart, 7);
+          fetchedTrainings.forEach((t) => {
+            const expiryDate = new Date(t.expiry_date);
+            const reminderDate = subMonths(expiryDate, 1);
+            if (reminderDate >= start && reminderDate < end) {
+              const key = format(reminderDate, "yyyy-MM-dd");
+              if (!trainByDay[key]) trainByDay[key] = [];
+              trainByDay[key].push(`${t.name} (Expires in 1 month)`);
+            }
+            if (expiryDate >= start && expiryDate < end) {
+              const key = format(expiryDate, "yyyy-MM-dd");
+              if (!trainByDay[key]) trainByDay[key] = [];
+              trainByDay[key].push(`${t.name} (EXPIRES TODAY)`);
+            }
+          });
+          setTrainingsByDay(trainByDay);
+      }
+
     } catch (err) {
       console.error("fetchData error:", err);
     } finally {
@@ -102,7 +131,6 @@ export default function WeekView() {
     fetchData();
   }, [fetchData]);
 
-  // Onboarding reminder for new users
   useEffect(() => {
     if (user && !localStorage.getItem("has_seen_onboarding")) {
       const needsEmployedSetup = user.employment_type === "employed" && !user.has_payslip;
@@ -124,8 +152,6 @@ export default function WeekView() {
     }
   }, [user]);
 
-
-
   const handleRecalculate = async () => {
     if (!user?.wage) {
       if (confirm("You haven't set your hourly wage yet. Earnings cannot be calculated accurately without it. Would you like to set it now in your profile?")) {
@@ -133,18 +159,16 @@ export default function WeekView() {
       }
       return;
     }
-
     if (user?.employment_type === "employed" && !user?.has_payslip) {
         if (confirm("For accurate historical and YTD calculations in Employed mode, you need to enter at least one payslip manually. Would you like to enter one now?")) {
             setIsManualEntryModalOpen(true);
             return;
         }
     }
-
     setIsCalculating(true);
     try {
         await Earnings.recalculate();
-        await fetchData(); // Refresh data after recalculation
+        await fetchData();
     } catch (error) {
         console.error("Recalculation failed:", error);
     } finally {
@@ -156,10 +180,9 @@ export default function WeekView() {
     setIsCalculating(true);
     try {
         await Earnings.calculateWeek(format(weekStart, "yyyy-MM-dd"));
-        await fetchData(); // Refresh data after calculation
+        await fetchData();
     } catch (error) {
         console.error("Single week calculation failed:", error);
-        // Optionally, show an error message to the user
     } finally {
         setIsCalculating(false);
     }
@@ -175,11 +198,10 @@ export default function WeekView() {
         setTempPayslipData(res.data);
         setIsManualEntryModalOpen(true);
       } else {
-        await fetchData(); // Refresh data after upload
+        await fetchData();
       }
     } catch (error) {
       console.error("Payslip upload failed:", error);
-      // Optionally, show an error message to the user
     }
   };
 
@@ -243,7 +265,6 @@ export default function WeekView() {
         )}
       </AnimatePresence>
 
-      {/* Profile Modal for setting wage */}
       <AnimatePresence>
         {isProfileModalOpen && (
           <ProfileModal
@@ -258,7 +279,6 @@ export default function WeekView() {
         )}
       </AnimatePresence>
 
-      {/* Manual Payslip Entry Modal */}
       {isManualEntryModalOpen && (
         <PayslipManualEntryModal
           isOpen={isManualEntryModalOpen}
@@ -266,8 +286,8 @@ export default function WeekView() {
             setIsManualEntryModalOpen(false);
             setTempPayslipData(null);
           }}
-          onSave={handleEntrySave} // Reuse handleEntrySave to refetch data
-          initialData={tempPayslipData || weekPayslip} // Pass existing payslip data for pre-filling
+          onSave={handleEntrySave}
+          initialData={tempPayslipData || weekPayslip}
         />
       )}
 
@@ -280,7 +300,7 @@ export default function WeekView() {
               {format(weekStart, "MMM d")} - {format(addDays(weekStart, 6), "MMM, d yyyy")}
             </p>
             {weekEarnings?.tax_week && (
-              <span className="bg-cyan-500/20 text-cyan-400 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-cyan-500/30 whitespace-nowrap">
+              <span className="bg-sky-500/20 text-sky-400 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-sky-500/30 whitespace-nowrap">
                 Tax Week {weekEarnings.tax_week}
               </span>
             )}
@@ -305,7 +325,7 @@ export default function WeekView() {
               </Button>
               <Button
                 onClick={handleCalculateWeek}
-                disabled={isCalculating} // Use the same calculating state for now
+                disabled={isCalculating}
                 className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
               >
                 <RefreshCw className={`h-4 w-4 md:h-5 md:w-5 ${isCalculating ? 'animate-spin' : ''}`} />
@@ -325,7 +345,6 @@ export default function WeekView() {
         </div>
       </div>
 
-      {/* Week Navigation */}
       <div className="flex justify-center items-center gap-3 md:gap-4 mb-6 md:mb-8">
         <Button onClick={handlePreviousWeek} variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
           <ChevronLeft className="h-4 w-4 md:h-5 w-5" />
@@ -346,11 +365,10 @@ export default function WeekView() {
         </Popover>
 
         <Button onClick={handleNextWeek} variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
-          <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
+          <ChevronRight className="h-4 w-4 md:h-5 w-5" />
         </Button>
       </div>
 
-      {/* Week Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 md:gap-4">
         {weekDays.map((day, i) => {
           const dayEntries = getEntriesForDay(day);
@@ -360,18 +378,32 @@ export default function WeekView() {
           );
           const key = format(day, "yyyy-MM-dd");
           const receiptCount = receiptsByDay[key] || 0;
+          const trainingReminders = trainingsByDay[key] || [];
 
           return (
-            <GlassCard key={i} className="p-3 md:p-4 flex flex-col min-h-fit">
+            <GlassCard key={i} className="p-3 md:p-4 flex flex-col min-h-fit relative">
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <div className="text-center w-full">
                   <p className="font-bold text-base md:text-lg">{format(day, "EEE")}</p>
-                  <p className={`text-sm ${isSameDay(day, new Date()) ? "text-cyan-400" : "text-gray-300"}`}>{format(day, "d")}</p>
+                  <p className={`text-sm ${isSameDay(day, new Date()) ? "text-sky-400" : "text-gray-300"}`}>{format(day, "d")}</p>
                 </div>
                 {receiptCount > 0 && (
                   <div className="absolute -mt-2 -mr-2 right-3 top-3 flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 border border-white/25">
                     <ReceiptText className="h-3.5 w-3.5" />
                     <span className="text-xs font-semibold">{receiptCount}</span>
+                  </div>
+                )}
+                {trainingReminders.length > 0 && (
+                  <div className="absolute -mt-2 -ml-2 left-3 top-3 flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-1 border border-amber-500/30 text-amber-400 group cursor-help">
+                    <Award className="h-3.5 w-3.5" />
+                    <span className="text-xs font-bold">{trainingReminders.length}</span>
+                    <div className="absolute top-full left-0 mt-2 w-48 p-2 bg-gray-900 border border-white/10 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
+                        {trainingReminders.map((rem, idx) => (
+                            <div key={idx} className="text-[10px] leading-tight mb-1 last:mb-0">
+                                • {rem}
+                            </div>
+                        ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -412,7 +444,6 @@ export default function WeekView() {
         })}
       </div>
 
-      {/* Week Summary */}
       <WeekSummary
         weekStart={weekStart}
         entries={currentWeekEntries}
@@ -423,8 +454,6 @@ export default function WeekView() {
         onUploadPayslip={handleUploadPayslip}
         onRefresh={fetchData}
       />
-
-
     </div>
   );
 }

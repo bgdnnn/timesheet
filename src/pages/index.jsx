@@ -6,6 +6,7 @@ import Expenses from "./Expenses";
 import Receipts from "./Receipts";
 import Earnings from "./Earnings";
 import PayslipFiles from "./PayslipFiles";
+import Trainings from "./Trainings";
 import AdminPage from "./Admin";
 import LoginPage from "./Login";
 
@@ -24,18 +25,19 @@ export default function Pages() {
 
 function MainApp() {
     return (
-        <Layout>
-            <Routes>
-                <Route path="/" element={<WeekView />} />
-                <Route path="/WeekView" element={<WeekView />} />
-                <Route path="/Projects" element={<Projects />} />
-                <Route path="/Hotels" element={<Hotels />} />
+        <Routes>
+            <Route element={<Layout />}>
+                <Route index element={<WeekView />} />
+                <Route path="/weekview" element={<WeekView />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/hotels" element={<Hotels />} />
                 <Route path="/expenses" element={<Expenses />} />
                 <Route path="/receipts" element={<Receipts />} />
                 <Route path="/earnings" element={<Earnings />} />
                 <Route path="/payslips" element={<PayslipFiles />} />
+                <Route path="/trainings" element={<Trainings />} />
                 <Route path="/admin" element={<AdminPage />} />
-            </Routes>
-        </Layout>
+            </Route>
+        </Routes>
     );
 }

@@ -139,7 +139,7 @@ export default function Earnings() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <EarningCard title="Gross Pay" value={ytd.gross_pay} icon={TrendingUp} colorClass="text-emerald-400" />
-        <EarningCard title="Net Pay" value={ytd.net_pay} icon={Wallet} colorClass="text-cyan-400" />
+        <EarningCard title="Net Pay" value={ytd.net_pay} icon={Wallet} colorClass="text-sky-400" />
         <EarningCard 
             title={isSelfEmployed ? "Tax (20%)" : "PAYE Tax"} 
             value={ytd.paye_tax} 
