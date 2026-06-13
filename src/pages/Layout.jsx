@@ -65,7 +65,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-sky-700 font-sans selection:bg-blue-500/30 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-sky-700 bg-fixed font-sans selection:bg-blue-500/30 text-white">
       {/* Desktop Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-black/10 border-r border-white/10 hidden lg:flex flex-col z-40 backdrop-blur-xl">
         <div className="p-8">

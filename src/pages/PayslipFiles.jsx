@@ -48,7 +48,7 @@ const ModalContent = ({ children, onClose, className = "" }) => (
     initial={{ scale: 0.9, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
     exit={{ scale: 0.9, opacity: 0 }}
-    className={`bg-gray-800/90 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-6 text-white ${className}`}
+    className={`bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-6 text-white ${className}`}
     onClick={(e) => e.stopPropagation()}
   >
     {children}
@@ -317,8 +317,20 @@ export default function PayslipFiles() {
     return years.sort((a, b) => b.localeCompare(a));
   }, [files]);
 
+  if (loading) {
+    return (
+        <div className="flex items-center justify-center h-[60vh]">
+            <RefreshCw className="h-8 w-8 animate-spin text-white/20" />
+        </div>
+    );
+  }
+
   return (
-    <div className="text-white space-y-8">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="text-white space-y-8"
+    >
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -361,9 +373,9 @@ export default function PayslipFiles() {
                 onChange={(e) => setFilterYear(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500/50"
             >
-                <option value="" className="bg-gray-900">All Years</option>
+                <option value="" className="bg-sky-900">All Years</option>
                 {uniqueYears.map(y => (
-                    <option key={y} value={y} className="bg-gray-900">{y}</option>
+                    <option key={y} value={y} className="bg-sky-900">{y}</option>
                 ))}
             </select>
         </GlassCard>
@@ -421,7 +433,8 @@ export default function PayslipFiles() {
       <AnimatePresence>
         {isUploading && bulkProgress.total > 0 && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-6">
-                <GlassCard className="max-w-md w-full p-8 text-center space-y-6 bg-gray-900/80 border-cyan-500/30">
+                <GlassCard className="max-w-md w-full p-8 text-center space-y-6 bg-white/10 border-cyan-500/30">
+
                     {bulkProgress.current === bulkProgress.total && bulkProgress.status === "Complete!" ? (
                         <CheckCircle2 className="h-16 w-16 text-green-400 mx-auto animate-bounce" />
                     ) : (
@@ -534,8 +547,9 @@ export default function PayslipFiles() {
       <AnimatePresence>
         {isViewModalOpen && (
           <ModalOverlay onClose={closeViewModal}>
-            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-gray-900 border-white/10">
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gray-800/50">
+            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-white/10 border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-cyan-400" />
                   <span className="font-bold text-sm md:text-base">Payslip Viewer</span>
@@ -634,6 +648,6 @@ export default function PayslipFiles() {
           </ModalOverlay>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

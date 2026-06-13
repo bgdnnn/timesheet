@@ -49,7 +49,7 @@ const ModalContent = ({ children, onClose, className = "" }) => (
     initial={{ scale: 0.9, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
     exit={{ scale: 0.9, opacity: 0 }}
-    className={`bg-gray-800/90 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-6 text-white ${className}`}
+    className={`bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl p-6 text-white ${className}`}
     onClick={(e) => e.stopPropagation()}
   >
     {children}
@@ -325,8 +325,9 @@ export default function Trainings() {
       <AnimatePresence>
         {isViewModalOpen && (
           <ModalOverlay onClose={closeViewModal}>
-            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-gray-900 border-white/10">
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gray-800/50">
+            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-white/10 border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
+
                 <div className="flex items-center gap-2">
                   <Award className="h-5 w-5 text-cyan-400" />
                   <span className="font-bold text-sm md:text-base">{viewFile?.name}</span>

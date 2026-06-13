@@ -383,7 +383,7 @@ export default function WeekView() {
               <CalendarDays className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 bg-gray-800/80 backdrop-blur-lg border-white/20 text-white" align="center">
+          <PopoverContent className="w-auto p-0 bg-white/10 backdrop-blur-lg border-white/20 text-white" align="center">
             <Calendar mode="single" selected={currentDate} onSelect={(d) => d && setCurrentDate(d)} initialFocus />
           </PopoverContent>
         </Popover>
