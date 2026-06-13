@@ -156,13 +156,24 @@ export default function PayslipFiles() {
     setBulkProgress({ current: 0, total: selectedFiles.length, status: "Starting..." });
     setIsUpload(true);
 
-    const pattern = /Payslip for Tax Week_(\d+) Tax Year_(\d{4})-(\d{4})\.pdf/i;
+    // More flexible pattern to catch variations:
+    // "Payslip for Tax Week_50 Tax Year_2024-2025.pdf"
+    // "Tax Week 50 Tax Year 2024-2025.pdf"
+    // "Week 50 2024-2025.pdf"
+    // "2024-2025_Week_50.pdf"
+    const pattern = /(?:Week|Period)[_\s]?(\d+).*(?:Year)?[_\s]?(\d{4})[_\-\s]?(\d{4})/i;
+
+    let skippedCount = 0;
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const match = file.name.match(pattern);
       
-      if (!match) continue;
+      if (!match) {
+        console.warn(`File name did not match pattern: ${file.name}`);
+        skippedCount++;
+        continue;
+      }
 
       const week = match[1];
       const startYear = match[2];
@@ -191,7 +202,13 @@ export default function PayslipFiles() {
     }
 
     setBulkProgress({ current: selectedFiles.length, total: selectedFiles.length, status: "Complete!" });
-    toast.success("Bulk upload finished");
+    
+    if (skippedCount > 0) {
+        toast.warning(`Bulk upload finished. ${skippedCount} files were skipped due to naming issues.`, { duration: 5000 });
+    } else {
+        toast.success("Bulk upload finished");
+    }
+
     setTimeout(() => {
         setIsUpload(false);
         setBulkProgress({ current: 0, total: 0, status: "" });
