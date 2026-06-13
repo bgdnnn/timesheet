@@ -156,28 +156,28 @@ export default function PayslipFiles() {
     setBulkProgress({ current: 0, total: selectedFiles.length, status: "Starting..." });
     setIsUpload(true);
 
-    // More flexible pattern to catch variations:
-    // "Payslip for Tax Week_50 Tax Year_2024-2025.pdf"
-    // "Tax Week 50 Tax Year 2024-2025.pdf"
-    // "Week 50 2024-2025.pdf"
-    // "2024-2025_Week_50.pdf"
-    const pattern = /(?:Week|Period)[_\s]?(\d+).*(?:Year)?[_\s]?(\d{4})[_\-\s]?(\d{4})/i;
+    // Robust parsing: Find week and years independently of order
+    const weekPattern = /(?:Week|Period)[_\s]?(\d+)/i;
+    const yearPattern = /(\d{4})[_\-\s]?(\d{4})/i;
 
+    let successCount = 0;
+    let failedCount = 0;
     let skippedCount = 0;
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      const match = file.name.match(pattern);
+      const weekMatch = file.name.match(weekPattern);
+      const yearMatch = file.name.match(yearPattern);
       
-      if (!match) {
-        console.warn(`File name did not match pattern: ${file.name}`);
+      if (!weekMatch || !yearMatch) {
+        console.warn(`File name did not match patterns: ${file.name}`);
         skippedCount++;
         continue;
       }
 
-      const week = match[1];
-      const startYear = match[2];
-      const endYear = match[3];
+      const week = weekMatch[1];
+      const startYear = yearMatch[1];
+      const endYear = yearMatch[2];
       const taxYearStr = `${startYear.slice(2)}-${endYear.slice(2)}`;
 
       setBulkProgress({ 
@@ -196,17 +196,21 @@ export default function PayslipFiles() {
           method: "POST",
           body: formData
         });
+        successCount++;
       } catch (err) {
         console.error(`Failed to upload ${file.name}:`, err);
+        failedCount++;
       }
     }
 
     setBulkProgress({ current: selectedFiles.length, total: selectedFiles.length, status: "Complete!" });
     
-    if (skippedCount > 0) {
-        toast.warning(`Bulk upload finished. ${skippedCount} files were skipped due to naming issues.`, { duration: 5000 });
-    } else {
-        toast.success("Bulk upload finished");
+    if (successCount > 0 && failedCount === 0 && skippedCount === 0) {
+        toast.success(`Successfully uploaded ${successCount} payslips.`);
+    } else if (successCount > 0) {
+        toast.info(`Uploaded ${successCount} payslips. ${failedCount} failed, ${skippedCount} skipped.`, { duration: 6000 });
+    } else if (failedCount > 0 || skippedCount > 0) {
+        toast.error(`Upload failed. ${failedCount} errors, ${skippedCount} naming issues. Check console for details.`, { duration: 8000 });
     }
 
     setTimeout(() => {
