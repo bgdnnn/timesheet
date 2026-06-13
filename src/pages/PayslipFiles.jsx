@@ -80,7 +80,7 @@ export default function PayslipFiles() {
   
   // Filtering & Sorting State
   const currentTaxYear = useMemo(() => getTaxYearString(new Date()), []);
-  const [filterYear, setFilterYear] = useState(currentTaxYear);
+  const [filterYear, setFilterYear] = useState("");
   const [filterWeek, setFilterWeek] = useState("");
   const [sortField, setSortField] = useState("date"); 
   const [sortOrder, setSortOrder] = useState("desc");
