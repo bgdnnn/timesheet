@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { format } from "date-fns";
 import { client } from '@/api/timesheetClient';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,7 +8,7 @@ import UserFormModal from "@/components/admin/UserFormModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ImportData from "@/components/ImportData";
 import { Project, TimeEntry, Hotel } from "@/api/entities";
-import { Download, Upload, Shield, Users, Database, FileJson, FileSpreadsheet, RefreshCw, History, AlertTriangle } from "lucide-react";
+import { Download, Upload, Shield, Users, Database, FileJson, FileSpreadsheet, RefreshCw, ShieldAlert, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 const AdminApi = {
@@ -311,7 +312,7 @@ export default function AdminPage() {
             <div className="space-y-6 pt-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
-                        <History className="h-5 w-5 text-cyan-400" />
+                        <Clock className="h-5 w-5 text-cyan-400" />
                         <h2 className="text-xl font-bold">Database Backups</h2>
                     </div>
                     <Button 
@@ -325,25 +326,27 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {backups.length > 0 ? (
+                    {backups && backups.length > 0 ? (
                         backups.map((backup) => (
-                            <GlassCard key={backup.filename} className="p-4 flex flex-col justify-between border-white/5 hover:border-cyan-500/20 transition-all">
+                            <GlassCard key={backup.filename || Math.random()} className="p-4 flex flex-col justify-between border-white/5 hover:border-cyan-500/20 transition-all">
                                 <div className="mb-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
                                             <Database className="h-4 w-4" />
                                         </div>
-                                        <p className="text-sm font-bold truncate" title={backup.filename}>
-                                            {backup.filename.replace("timesheet_", "").replace(".sql.gz", "")}
+                                        <p className="text-sm font-bold truncate" title={backup.filename || ""}>
+                                            {(backup.filename || "").replace("timesheet_", "").replace(".sql.gz", "")}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] text-gray-400 uppercase font-bold">Created At</p>
-                                        <p className="text-xs">{format(new Date(backup.created_at), "MMM d, yyyy HH:mm")}</p>
+                                        <p className="text-xs">
+                                            {backup.created_at ? format(new Date(backup.created_at), "MMM d, yyyy HH:mm") : "N/A"}
+                                        </p>
                                     </div>
                                     <div className="mt-2 space-y-1">
                                         <p className="text-[10px] text-gray-400 uppercase font-bold">Size</p>
-                                        <p className="text-xs">{(backup.size_bytes / 1024).toFixed(1)} KB</p>
+                                        <p className="text-xs">{backup.size_bytes ? (backup.size_bytes / 1024).toFixed(1) : "0"} KB</p>
                                     </div>
                                 </div>
                                 
@@ -362,13 +365,13 @@ export default function AdminPage() {
                                     <AlertDialogContent className="bg-gray-900 border-white/20 text-white">
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="flex items-center gap-2 text-rose-400">
-                                                <AlertTriangle className="h-5 w-5" />
+                                                <ShieldAlert className="h-5 w-5" />
                                                 Confirm Database Restore
                                             </AlertDialogTitle>
                                             <AlertDialogDescription className="text-gray-400 space-y-4">
                                                 <p>
                                                     You are about to restore the database from backup: 
-                                                    <strong className="text-white block mt-1">{backup.filename}</strong>
+                                                    <strong className="text-white block mt-1">{backup.filename || "Unknown"}</strong>
                                                 </p>
                                                 <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-rose-400 text-xs">
                                                     <strong>WARNING:</strong> This will permanently overwrite all current data. 
