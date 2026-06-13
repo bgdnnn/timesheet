@@ -1,8 +1,8 @@
 // src/pages/WeekView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings, Trainings } from "@/api/entities.js";
+import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings, Trainings, Notes } from "@/api/entities.js";
 import { Button } from "@/components/ui/button.jsx";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw, Award } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw, Award, StickyNote } from "lucide-react";
 import { format, startOfWeek as fnsStartOfWeek, addDays, subDays, isSameDay, subMonths } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.jsx";
@@ -11,6 +11,7 @@ import TimeEntryModal from "@/components/week-view/TimeEntryModal.jsx";
 import WeekSummary from "@/components/week-view/WeekSummary.jsx";
 import PayslipManualEntryModal from "@/components/payslips/PayslipManualEntryModal.jsx";
 import ProfileModal from "@/components/profile/ProfileModal.jsx";
+import NotepadModal from "@/components/week-view/NotepadModal.jsx";
 
 const GlassCard = ({ children, className = "" }) => (
   <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg ${className}`}>
@@ -31,9 +32,11 @@ export default function WeekView() {
   const [weekEarnings, setWeekEarnings] = useState(null);
   const [receiptsByDay, setReceiptsByDay] = useState({}); // { 'yyyy-MM-dd': count }
   const [trainingsByDay, setTrainingsByDay] = useState({}); // { 'yyyy-MM-dd': [trainingNames] }
+  const [notesByDay, setNotesByDay] = useState({}); // { 'yyyy-MM-dd': noteContent }
   const [isCalculating, setIsCalculating] = useState(false);
   const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isNotepadModalOpen, setIsNotepadModalOpen] = useState(false);
   const [tempPayslipData, setTempPayslipData] = useState(null);
 
   const inFlightRef = useRef(false);
@@ -51,7 +54,7 @@ export default function WeekView() {
       setUser(currentUser);
 
       // 2. Fetch Dependent Data
-      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings, fetchedTrainings] = await Promise.all([
+      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings, fetchedTrainings, fetchedNotes] = await Promise.all([
         Project.filter({ archived: null }),
         TimeEntry.filter({ created_by: currentUser.email }),
         Hotel.filter({ created_by: currentUser.email }, "name"),
@@ -59,6 +62,7 @@ export default function WeekView() {
         Receipts.list({ created_by: currentUser.email }, "created_at_desc"),
         Earnings.forWeek(format(weekStart, "yyyy-MM-dd")),
         Trainings.list(),
+        Notes.filter({ from: format(weekStart, "yyyy-MM-dd"), to: format(addDays(weekStart, 6), "yyyy-MM-dd") }),
       ]);
 
       if (fetchedProjects) {
@@ -118,6 +122,14 @@ export default function WeekView() {
             }
           });
           setTrainingsByDay(trainByDay);
+      }
+
+      if (fetchedNotes) {
+          const notesByD = {};
+          fetchedNotes.forEach((n) => {
+            notesByD[n.date] = n.content;
+          });
+          setNotesByDay(notesByD);
       }
 
     } catch (err) {
@@ -221,6 +233,11 @@ export default function WeekView() {
     setIsModalOpen(true);
   };
 
+  const openNotepadForDate = (date) => {
+    setSelectedDate(date);
+    setIsNotepadModalOpen(true);
+  };
+
   const handleEntrySave = async () => {
     setIsModalOpen(false);
     await fetchData();
@@ -290,6 +307,13 @@ export default function WeekView() {
           initialData={tempPayslipData || weekPayslip}
         />
       )}
+
+      <NotepadModal
+        isOpen={isNotepadModalOpen}
+        onClose={() => setIsNotepadModalOpen(false)}
+        date={selectedDate}
+        onSave={fetchData}
+      />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
@@ -379,6 +403,7 @@ export default function WeekView() {
           const key = format(day, "yyyy-MM-dd");
           const receiptCount = receiptsByDay[key] || 0;
           const trainingReminders = trainingsByDay[key] || [];
+          const noteContent = notesByDay[key];
 
           return (
             <GlassCard key={i} className="p-3 md:p-4 flex flex-col min-h-fit relative">
@@ -406,9 +431,25 @@ export default function WeekView() {
                     </div>
                   </div>
                 )}
+                <button 
+                  onClick={() => openNotepadForDate(day)}
+                  className={`absolute -bottom-2 -right-1 p-1.5 rounded-full border transition-all shadow-lg ${noteContent ? 'bg-amber-400 text-amber-950 border-amber-300 hover:bg-amber-300' : 'bg-white/10 text-gray-400 border-white/20 hover:bg-white/20'}`}
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                </button>
               </div>
 
               <div className="flex-grow space-y-2 md:space-y-3">
+                {noteContent && (
+                  <div 
+                    onClick={() => openNotepadForDate(day)}
+                    className="bg-amber-400/10 border border-amber-400/20 p-2 rounded-lg cursor-pointer hover:bg-amber-400/15 transition-all mb-2"
+                  >
+                    <p className="text-[10px] md:text-xs text-amber-200 line-clamp-3 italic">
+                      "{noteContent}"
+                    </p>
+                  </div>
+                )}
                 {dayEntries.map((e) => (
                   <motion.div
                     key={e.id}

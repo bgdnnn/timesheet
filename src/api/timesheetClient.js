@@ -117,6 +117,7 @@ export const client = {
       async delete(id) { return mkEntity("/time-entries").remove(id); },
     },
     Hotel: mkEntity("/hotels"),
+    Notes: mkEntity("/notes"),
     Receipts: {
       async list(query = {}, sort = "created_at_desc") { return mkEntity("/receipts").filter(query, sort); },
       async upload({ file, receipt_date, notes }) {

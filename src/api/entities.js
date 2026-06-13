@@ -5,6 +5,7 @@ import { uploadPayslip, manualEntry, getPayslipForWeek } from "../api/payslips.j
 export const Project   = client.entities.Project;
 export const TimeEntry = client.entities.TimeEntry;
 export const Hotel     = client.entities.Hotel;
+export const Notes     = client.entities.Notes;
 export const Receipts  = client.entities.Receipts;
 export const Trainings = client.entities.Trainings;
 export const Payslips  = {
