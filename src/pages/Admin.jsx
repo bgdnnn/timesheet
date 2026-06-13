@@ -7,7 +7,7 @@ import UserFormModal from "@/components/admin/UserFormModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ImportData from "@/components/ImportData";
 import { Project, TimeEntry, Hotel } from "@/api/entities";
-import { Download, Upload, Shield, Users, Database, FileJson, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { Download, Upload, Shield, Users, Database, FileJson, FileSpreadsheet, RefreshCw, History, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 const AdminApi = {
@@ -15,6 +15,9 @@ const AdminApi = {
     getUser: (userId) => client.fetchJson(`/admin/users/${userId}`),
     updateUser: (userId, data) => client.fetchJson(`/admin/users/${userId}`, { method: 'PUT', body: data }),
     deleteUser: (userId) => client.fetchJson(`/admin/users/${userId}`, { method: 'DELETE' }),
+    listBackups: () => client.fetchJson('/admin/backups'),
+    triggerBackup: () => client.fetchJson('/admin/backups/trigger', { method: 'POST' }),
+    restoreBackup: (filename) => client.fetchJson(`/admin/backups/restore/${encodeURIComponent(filename)}`, { method: 'POST' }),
 };
 
 const GlassCard = ({ children, className = "" }) => (
@@ -130,9 +133,12 @@ const AdminMobileView = ({ users, handleEditUser, handleDeleteUser, handleRoleCh
 
 export default function AdminPage() {
     const [users, setUsers] = useState([]);
+    const [backups, setBackups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
     const isMobile = useIsMobile();
 
     const fetchUsers = useCallback(async () => {
@@ -148,9 +154,48 @@ export default function AdminPage() {
         }
     }, []);
 
+    const fetchBackups = useCallback(async () => {
+        try {
+            const fetchedBackups = await AdminApi.listBackups();
+            setBackups(fetchedBackups);
+        } catch (error) {
+            console.error("Error fetching backups:", error);
+        }
+    }, []);
+
     useEffect(() => {
         fetchUsers();
-    }, [fetchUsers]);
+        fetchBackups();
+    }, [fetchUsers, fetchBackups]);
+
+    const handleTriggerBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            await AdminApi.triggerBackup();
+            toast.success("Database backup created successfully");
+            fetchBackups();
+        } catch (error) {
+            console.error("Backup failed:", error);
+            toast.error("Backup failed");
+        } finally {
+            setIsBackingUp(false);
+        }
+    };
+
+    const handleRestoreBackup = async (filename) => {
+        setIsRestoring(true);
+        const toastId = toast.loading("Restoring database... please wait.");
+        try {
+            await AdminApi.restoreBackup(filename);
+            toast.success("Database restored successfully", { id: toastId });
+            fetchUsers(); // Refresh data
+        } catch (error) {
+            console.error("Restore failed:", error);
+            toast.error("Restore failed", { id: toastId });
+        } finally {
+            setIsRestoring(false);
+        }
+    };
 
     const handleEditUser = (user) => {
         setSelectedUser(user);
@@ -260,6 +305,97 @@ export default function AdminPage() {
                 ) : (
                     <AdminDesktopView users={users} handleEditUser={handleEditUser} handleDeleteUser={handleDeleteUser} handleRoleChange={handleRoleChange} />
                 )}
+            </div>
+
+            {/* Backup Management Section */}
+            <div className="space-y-6 pt-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <History className="h-5 w-5 text-cyan-400" />
+                        <h2 className="text-xl font-bold">Database Backups</h2>
+                    </div>
+                    <Button 
+                        onClick={handleTriggerBackup} 
+                        disabled={isBackingUp}
+                        className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl px-4 h-10"
+                    >
+                        {isBackingUp ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+                        Backup Now
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {backups.length > 0 ? (
+                        backups.map((backup) => (
+                            <GlassCard key={backup.filename} className="p-4 flex flex-col justify-between border-white/5 hover:border-cyan-500/20 transition-all">
+                                <div className="mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                                            <Database className="h-4 w-4" />
+                                        </div>
+                                        <p className="text-sm font-bold truncate" title={backup.filename}>
+                                            {backup.filename.replace("timesheet_", "").replace(".sql.gz", "")}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold">Created At</p>
+                                        <p className="text-xs">{format(new Date(backup.created_at), "MMM d, yyyy HH:mm")}</p>
+                                    </div>
+                                    <div className="mt-2 space-y-1">
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold">Size</p>
+                                        <p className="text-xs">{(backup.size_bytes / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                </div>
+                                
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            disabled={isRestoring}
+                                            className="w-full bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 h-8 text-xs font-bold"
+                                        >
+                                            <RefreshCw className="h-3 w-3 mr-1.5" />
+                                            Restore
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="bg-gray-900 border-white/20 text-white">
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle className="flex items-center gap-2 text-rose-400">
+                                                <AlertTriangle className="h-5 w-5" />
+                                                Confirm Database Restore
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription className="text-gray-400 space-y-4">
+                                                <p>
+                                                    You are about to restore the database from backup: 
+                                                    <strong className="text-white block mt-1">{backup.filename}</strong>
+                                                </p>
+                                                <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg text-rose-400 text-xs">
+                                                    <strong>WARNING:</strong> This will permanently overwrite all current data. 
+                                                    All changes made since this backup was created will be lost.
+                                                </div>
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel className="bg-white/5 border-white/10 text-white">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                                onClick={() => handleRestoreBackup(backup.filename)}
+                                                className="bg-rose-500 hover:bg-rose-600 text-white"
+                                            >
+                                                Yes, Restore Now
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </GlassCard>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-12 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                            <Database className="h-10 w-10 text-white/10 mx-auto mb-3" />
+                            <p className="text-gray-500 text-sm">No backups found.</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Data Operations Grid */}
