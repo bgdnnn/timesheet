@@ -76,7 +76,9 @@ export default function PayslipFiles() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isP60UploadModalOpen, setIsP60UploadModalOpen] = useState(false);
   const [isUploading, setIsUpload] = useState(false);
+  const [activeTab, setActiveTab] = useState("payslips");
   
   // Filtering & Sorting State
   const currentTaxYear = useMemo(() => getTaxYearString(new Date()), []);
@@ -143,6 +145,38 @@ export default function PayslipFiles() {
       fetchFiles();
     } catch (err) {
       console.error("Upload failed:", err);
+      toast.error("Upload failed");
+    } finally {
+      setIsUpload(false);
+    }
+  };
+
+  const handleP60Upload = async (e) => {
+    e.preventDefault();
+    if (!selectedFile || !taxYear) {
+        toast.error("Please fill all fields");
+        return;
+    }
+    
+    setIsUpload(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("process_date", processDate);
+    formData.append("tax_week", "0");
+    formData.append("tax_year", taxYear);
+
+    try {
+      await client.fetchJson("/payslip-files/upload", {
+        method: "POST",
+        body: formData
+      });
+      toast.success("P60 archived");
+      setIsP60UploadModalOpen(false);
+      setSelectedFile(null);
+      setTaxYear("");
+      fetchFiles();
+    } catch (err) {
+      console.error("P60 upload failed:", err);
       toast.error("Upload failed");
     } finally {
       setIsUpload(false);
@@ -220,10 +254,11 @@ export default function PayslipFiles() {
     }, 1500);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this payslip?")) return;
+  const handleDelete = async (file) => {
+    const isP60 = file.tax_week === 0;
+    if (!confirm(`Are you sure you want to delete this ${isP60 ? "P60 statement" : "payslip"}?`)) return;
     try {
-      await client.fetchJson(`/payslip-files/${id}`, { method: "DELETE" });
+      await client.fetchJson(`/payslip-files/${file.id}`, { method: "DELETE" });
       toast.success("Deleted");
       fetchFiles();
     } catch (err) {
@@ -285,10 +320,16 @@ export default function PayslipFiles() {
   const filteredAndSortedFiles = useMemo(() => {
     let result = [...files];
 
+    if (activeTab === "payslips") {
+        result = result.filter(f => f.tax_week !== 0);
+    } else {
+        result = result.filter(f => f.tax_week === 0);
+    }
+
     if (filterYear) {
         result = result.filter(f => f.tax_year === filterYear);
     }
-    if (filterWeek) {
+    if (filterWeek && activeTab === "payslips") {
         result = result.filter(f => String(f.tax_week) === filterWeek);
     }
 
@@ -310,7 +351,7 @@ export default function PayslipFiles() {
     });
 
     return result;
-  }, [files, filterYear, filterWeek, sortField, sortOrder]);
+  }, [files, filterYear, filterWeek, sortField, sortOrder, activeTab]);
 
   const uniqueYears = useMemo(() => {
     const years = [...new Set(files.map(f => f.tax_year))];
@@ -361,7 +402,45 @@ export default function PayslipFiles() {
                 <Plus className="h-5 w-5" />
                 Single PDF
             </Button>
+            <Button 
+                onClick={() => {
+                  setProcessDate(format(new Date(), "yyyy-MM-dd"));
+                  setTaxYear("");
+                  setSelectedFile(null);
+                  setIsP60UploadModalOpen(true);
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-11 px-6 rounded-xl flex items-center gap-2"
+            >
+                <Plus className="h-5 w-5" />
+                Add P60
+            </Button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-white/10 mb-6">
+        <button
+          onClick={() => {
+            setActiveTab("payslips");
+            setSortField("date");
+          }}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "payslips" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          Weekly Payslips
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("p60");
+            setSortField("date");
+          }}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "p60" ? "text-amber-400 border-amber-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          P60 End-of-Year Statements
+        </button>
       </div>
 
       {/* Filters & Sorting */}
@@ -380,53 +459,94 @@ export default function PayslipFiles() {
             </select>
         </GlassCard>
 
-        <GlassCard className="md:col-span-1 p-4">
-            <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Week</Label>
-            <Input 
-                type="number"
-                placeholder="e.g. 50"
-                value={filterWeek}
-                onChange={(e) => setFilterWeek(e.target.value)}
-                className="bg-white/5 border-white/10 h-10"
-            />
-        </GlassCard>
+        {activeTab === "payslips" ? (
+          <>
+            <GlassCard className="md:col-span-1 p-4">
+                <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Week</Label>
+                <Input 
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={filterWeek}
+                    onChange={(e) => setFilterWeek(e.target.value)}
+                    className="bg-white/5 border-white/10 h-10"
+                />
+            </GlassCard>
 
-        <GlassCard className="md:col-span-2 flex items-center justify-between p-4">
-            <div className="flex items-center gap-4">
-                <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
-                <div className="flex gap-2">
-                    {["date", "week"].map(f => (
-                        <button
-                            key={f}
-                            onClick={() => {
-                                if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                else { setSortField(f); setSortOrder("desc"); }
-                            }}
-                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
-                        >
-                            {f.charAt(0).toUpperCase() + f.slice(1)}
-                            {sortField === f && <ArrowUpDown className="h-3 w-3" />}
-                        </button>
-                    ))}
+            <GlassCard className="md:col-span-2 flex items-center justify-between p-4">
+                <div className="flex items-center gap-4">
+                    <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
+                    <div className="flex gap-2">
+                        {["date", "week"].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => {
+                                    if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                    else { setSortField(f); setSortOrder("desc"); }
+                                }}
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
+                            >
+                                {f.charAt(0).toUpperCase() + f.slice(1)}
+                                {sortField === f && <ArrowUpDown className="h-3 w-3" />}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
-            <div className="flex gap-2">
-                {(filterYear || filterWeek) && (
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => { setFilterYear(""); setFilterWeek(""); }}
-                        title="Clear Filters"
-                        className="text-rose-400 hover:bg-rose-500/10"
-                    >
-                        <FilterX className="h-4 w-4" />
+                <div className="flex gap-2">
+                    {(filterYear || filterWeek) && (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => { setFilterYear(""); setFilterWeek(""); }}
+                            title="Clear Filters"
+                            className="text-rose-400 hover:bg-rose-500/10"
+                        >
+                            <FilterX className="h-4 w-4" />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={fetchFiles} className="text-gray-400 hover:text-white">
+                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                     </Button>
-                )}
-                <Button variant="ghost" size="icon" onClick={fetchFiles} className="text-gray-400 hover:text-white">
-                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                </Button>
-            </div>
-        </GlassCard>
+                </div>
+            </GlassCard>
+          </>
+        ) : (
+          <GlassCard className="md:col-span-3 flex items-center justify-between p-4">
+              <div className="flex items-center gap-4">
+                  <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
+                  <div className="flex gap-2">
+                      {["date", "year"].map(f => (
+                          <button
+                              key={f}
+                              onClick={() => {
+                                  if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                  else { setSortField(f); setSortOrder("desc"); }
+                              }}
+                              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
+                          >
+                              {f.charAt(0).toUpperCase() + f.slice(1)}
+                              {sortField === f && <ArrowUpDown className="h-3 w-3" />}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+              <div className="flex gap-2">
+                  {filterYear && (
+                      <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => { setFilterYear(""); }}
+                          title="Clear Filters"
+                          className="text-rose-400 hover:bg-rose-500/10"
+                      >
+                          <FilterX className="h-4 w-4" />
+                      </Button>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={fetchFiles} className="text-gray-400 hover:text-white">
+                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  </Button>
+              </div>
+          </GlassCard>
+        )}
       </div>
 
       {/* Progress Overlay */}
@@ -474,10 +594,16 @@ export default function PayslipFiles() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9 }}
             >
-              <GlassCard className="group hover:border-cyan-500/30 transition-all duration-300">
+              <GlassCard className={`group transition-all duration-300 ${
+                file.tax_week === 0 ? "hover:border-amber-500/30" : "hover:border-cyan-500/30"
+              }`}>
                 <div className="flex justify-between items-start mb-4">
-                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 transition-all">
-                    <FileText className="h-6 w-6 text-cyan-400" />
+                  <div className={`p-2.5 rounded-xl bg-white/5 border border-white/10 transition-all ${
+                    file.tax_week === 0 
+                      ? "group-hover:bg-amber-500/10 group-hover:border-amber-500/20 text-amber-400" 
+                      : "group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 text-cyan-400"
+                  }`}>
+                    <FileText className="h-6 w-6" />
                   </div>
                   <div className="flex gap-1">
                     <Button 
@@ -485,7 +611,9 @@ export default function PayslipFiles() {
                       size="icon" 
                       onClick={() => handleAction(file, "view")}
                       title={isMobile ? "Open PDF" : "View PDF"}
-                      className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
+                      className={`text-gray-400 rounded-full h-8 w-8 ${
+                        file.tax_week === 0 ? "hover:text-amber-400 hover:bg-amber-500/10" : "hover:text-cyan-400 hover:bg-cyan-500/10"
+                      }`}
                     >
                       {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -501,7 +629,7 @@ export default function PayslipFiles() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => handleDelete(file.id)}
+                      onClick={() => handleDelete(file)}
                       title="Delete"
                       className="text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-full h-8 w-8"
                     >
@@ -511,7 +639,9 @@ export default function PayslipFiles() {
                 </div>
                 
                 <div>
-                  <h3 className="font-bold text-lg leading-none mb-2">{file.filename}</h3>
+                  <h3 className="font-bold text-lg leading-none mb-2">
+                    {file.tax_week === 0 ? `P60 Statement - Year ${file.tax_year}` : file.filename}
+                  </h3>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <Calendar className="h-3 w-3" />
@@ -519,7 +649,11 @@ export default function PayslipFiles() {
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <Hash className="h-3 w-3" />
-                      <span>Tax Week {file.tax_week} • Year {file.tax_year}</span>
+                      {file.tax_week === 0 ? (
+                        <span>Year {file.tax_year}</span>
+                      ) : (
+                        <span>Tax Week {file.tax_week} • Year {file.tax_year}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -531,7 +665,9 @@ export default function PayslipFiles() {
         {filteredAndSortedFiles.length === 0 && !loading && !isUploading && (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
             <FileText className="h-16 w-16 text-white/10 mb-4" />
-            <p className="text-gray-400 font-medium">No payslips found matching your filters.</p>
+            <p className="text-gray-400 font-medium">
+              {activeTab === "p60" ? "No P60 statements found matching your filters." : "No payslips found matching your filters."}
+            </p>
             <Button 
               variant="link" 
               onClick={() => { setFilterYear(""); setFilterWeek(""); }}
@@ -641,6 +777,76 @@ export default function PayslipFiles() {
                     className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 rounded-xl"
                   >
                     {isUploading ? "Uploading..." : "Archive Payslip"}
+                  </Button>
+                </div>
+              </form>
+            </ModalContent>
+          </ModalOverlay>
+        )}
+      </AnimatePresence>
+
+      {/* P60 Upload Modal */}
+      <AnimatePresence>
+        {isP60UploadModalOpen && (
+          <ModalOverlay onClose={() => setIsP60UploadModalOpen(false)}>
+            <ModalContent onClose={() => setIsP60UploadModalOpen(false)} className="max-w-md">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                    <Plus className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold">Archive P60 Statement</h2>
+              </div>
+
+              <form onSubmit={handleP60Upload} className="space-y-4">
+                <div>
+                  <Label>P60 PDF File</Label>
+                  <Input 
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={(e) => setSelectedFile(e.target.files[0])}
+                    className="mt-1.5 bg-white/5 border-white/10"
+                    required
+                  />
+                </div>
+
+                <div>
+                    <Label>Process Date</Label>
+                    <Input 
+                        type="date" 
+                        value={processDate}
+                        onChange={(e) => setProcessDate(e.target.value)}
+                        className="mt-1.5 bg-white/5 border-white/10"
+                        required
+                    />
+                </div>
+
+                <div>
+                  <Label>Tax Year (ex: 25-26)</Label>
+                  <Input 
+                    type="text" 
+                    placeholder="25-26"
+                    value={taxYear}
+                    onChange={(e) => setTaxYear(e.target.value)}
+                    className="mt-1.5 bg-white/5 border-white/10"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    onClick={() => setIsP60UploadModalOpen(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-6 rounded-xl"
+                  >
+                    {isUploading ? "Uploading..." : "Archive P60"}
                   </Button>
                 </div>
               </form>
