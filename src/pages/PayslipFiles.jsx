@@ -378,7 +378,7 @@ export default function PayslipFiles() {
           <h1 className="text-3xl font-bold tracking-tight">Payslip Archive</h1>
           <p className="text-gray-300 mt-1">Upload and manage your payslip PDF documents.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <input 
                 type="file" 
                 multiple 
@@ -390,14 +390,14 @@ export default function PayslipFiles() {
             <Button 
                 onClick={() => bulkInputRef.current.click()}
                 variant="outline"
-                className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold h-11 px-6 rounded-xl flex items-center gap-2"
+                className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-bold h-11 px-6 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
                 <Upload className="h-5 w-5" />
                 Bulk Upload
             </Button>
             <Button 
                 onClick={() => setIsUploadModalOpen(true)}
-                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-11 px-6 rounded-xl flex items-center gap-2"
+                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-11 px-6 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
                 <Plus className="h-5 w-5" />
                 Single PDF
@@ -409,7 +409,7 @@ export default function PayslipFiles() {
                   setSelectedFile(null);
                   setIsP60UploadModalOpen(true);
                 }}
-                className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-11 px-6 rounded-xl flex items-center gap-2"
+                className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-11 px-6 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
             >
                 <Plus className="h-5 w-5" />
                 Add P60
@@ -418,7 +418,7 @@ export default function PayslipFiles() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 mb-6">
+      <div className="flex flex-wrap border-b border-white/10 mb-6">
         <button
           onClick={() => {
             setActiveTab("payslips");
@@ -436,7 +436,7 @@ export default function PayslipFiles() {
             setSortField("date");
           }}
           className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
-            activeTab === "p60" ? "text-amber-400 border-amber-400" : "text-gray-400 hover:text-white border-transparent"
+            activeTab === "p60" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
           }`}
         >
           P60 End-of-Year Statements
@@ -472,7 +472,7 @@ export default function PayslipFiles() {
                 />
             </GlassCard>
 
-            <GlassCard className="md:col-span-2 flex items-center justify-between p-4">
+            <GlassCard className="md:col-span-2 flex flex-wrap items-center justify-between gap-4 p-4">
                 <div className="flex items-center gap-4">
                     <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
                     <div className="flex gap-2">
@@ -510,7 +510,7 @@ export default function PayslipFiles() {
             </GlassCard>
           </>
         ) : (
-          <GlassCard className="md:col-span-3 flex items-center justify-between p-4">
+          <GlassCard className="md:col-span-3 flex flex-wrap items-center justify-between gap-4 p-4">
               <div className="flex items-center gap-4">
                   <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
                   <div className="flex gap-2">
@@ -521,7 +521,7 @@ export default function PayslipFiles() {
                                   if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                                   else { setSortField(f); setSortOrder("desc"); }
                               }}
-                              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
+                              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
                           >
                               {f.charAt(0).toUpperCase() + f.slice(1)}
                               {sortField === f && <ArrowUpDown className="h-3 w-3" />}
@@ -594,15 +594,9 @@ export default function PayslipFiles() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9 }}
             >
-              <GlassCard className={`group transition-all duration-300 ${
-                file.tax_week === 0 ? "hover:border-amber-500/30" : "hover:border-cyan-500/30"
-              }`}>
+              <GlassCard className="group hover:border-cyan-500/30 transition-all duration-300">
                 <div className="flex justify-between items-start mb-4">
-                  <div className={`p-2.5 rounded-xl bg-white/5 border border-white/10 transition-all ${
-                    file.tax_week === 0 
-                      ? "group-hover:bg-amber-500/10 group-hover:border-amber-500/20 text-amber-400" 
-                      : "group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 text-cyan-400"
-                  }`}>
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 transition-all group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 text-cyan-400">
                     <FileText className="h-6 w-6" />
                   </div>
                   <div className="flex gap-1">
@@ -611,9 +605,7 @@ export default function PayslipFiles() {
                       size="icon" 
                       onClick={() => handleAction(file, "view")}
                       title={isMobile ? "Open PDF" : "View PDF"}
-                      className={`text-gray-400 rounded-full h-8 w-8 ${
-                        file.tax_week === 0 ? "hover:text-amber-400 hover:bg-amber-500/10" : "hover:text-cyan-400 hover:bg-cyan-500/10"
-                      }`}
+                      className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
                     >
                       {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -791,7 +783,7 @@ export default function PayslipFiles() {
           <ModalOverlay onClose={() => setIsP60UploadModalOpen(false)}>
             <ModalContent onClose={() => setIsP60UploadModalOpen(false)} className="max-w-md">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
+                <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
                     <Plus className="h-5 w-5" />
                 </div>
                 <h2 className="text-xl font-bold">Archive P60 Statement</h2>
@@ -844,7 +836,7 @@ export default function PayslipFiles() {
                   <Button 
                     type="submit" 
                     disabled={isUploading}
-                    className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-6 rounded-xl"
+                    className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 rounded-xl"
                   >
                     {isUploading ? "Uploading..." : "Archive P60"}
                   </Button>
