@@ -7,10 +7,10 @@ import "@/index.css";
 // Keep API base available both via Vite and a global (for scripts)
 if (!window.__API_BASE__) {
   window.__API_BASE__ =
-    (typeof import.meta !== "undefined" &&
+    ((typeof import.meta !== "undefined" &&
       import.meta.env &&
       import.meta.env.VITE_API_BASE) ||
-    "";
+    "").replace(/\/+$/, "");
 }
 
 // Pull access_token from the URL fragment once after OAuth redirect

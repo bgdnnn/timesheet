@@ -446,7 +446,7 @@ export default function WeekView() {
                     className="bg-amber-400/10 border border-amber-400/20 p-2 rounded-lg cursor-pointer hover:bg-amber-400/15 transition-all mb-2"
                   >
                     <p className="text-[10px] md:text-xs text-amber-200 line-clamp-3 italic">
-                      "{noteContent}"
+                      &quot;{noteContent}&quot;
                     </p>
                   </div>
                 )}

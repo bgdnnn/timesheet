@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 
 export async function uploadReceipts({ entry_date, time_entry_id, files }) {
   const fd = new FormData();

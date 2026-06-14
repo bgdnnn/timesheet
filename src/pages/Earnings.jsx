@@ -89,9 +89,9 @@ export default function Earnings() {
             <Landmark className="h-16 w-16 text-white/20 mb-4" />
             <h2 className="text-xl font-bold mb-2">No Earnings Data</h2>
             <p className="text-gray-300 mb-6 max-w-md">
-                We couldn't find any earnings data for this tax year. 
+                We couldn&apos;t find any earnings data for this tax year. 
                 {isSelfEmployed 
-                  ? "Logged hours will automatically appear here once you've set your hourly rate."
+                  ? "Logged hours will automatically appear here once you&apos;ve set your hourly rate."
                   : "Please upload a payslip or enter payslip data manually in the Week View."}
             </p>
             <Button onClick={handleRecalculate} disabled={isCalculating} className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30">

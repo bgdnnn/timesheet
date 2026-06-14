@@ -61,7 +61,7 @@ export default function Layout() {
 
   const isActive = (urlKey) => {
     const path = createPageUrl(urlKey);
-    return location.pathname === path || (path === "/WeekView" && location.pathname === "/");
+    return location.pathname.toLowerCase() === path.toLowerCase() || (path.toLowerCase() === "/weekview" && location.pathname === "/");
   };
 
   return (

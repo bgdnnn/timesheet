@@ -62,8 +62,10 @@ export default function TimeEntryModal({
   const [travelTime, setTravelTime] = useState(entry?.travel_time || 0);
   const [isSaving, setIsSaving] = useState(false);
   const [sortedProjects, setSortedProjects] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setError("");
     if (entry) {
       setDate(new Date(entry.date));
       setProjectId(entry.project_id);
@@ -110,6 +112,7 @@ export default function TimeEntryModal({
 
   const handleProjectChange = (id) => {
     setProjectId(id);
+    setError("");
     const p = projects.find((x) => String(x.id) === String(id));
     if (p) {
       setHoursWorked(p.default_hours_worked || 0);
@@ -119,10 +122,11 @@ export default function TimeEntryModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setIsSaving(true);
     const p = projects.find((x) => String(x.id) === String(projectId));
     if (!p) {
-      console.error("Project not found");
+      setError("Please select a project.");
       setIsSaving(false);
       return;
     }
@@ -204,6 +208,7 @@ export default function TimeEntryModal({
                   ))}
               </SelectContent>
             </Select>
+            {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:gap-4">
