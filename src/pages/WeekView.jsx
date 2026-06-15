@@ -238,13 +238,46 @@ export default function WeekView() {
     setIsNotepadModalOpen(true);
   };
 
-  const handleEntrySave = async () => {
+  const handleEntrySave = async (entryDate) => {
     setIsModalOpen(false);
+    setIsCalculating(true);
+    try {
+      if (user?.is_calculator_enabled) {
+        await Earnings.calculateWeek(format(weekStart, "yyyy-MM-dd"));
+        if (entryDate) {
+          const entryWeekStart = fnsStartOfWeek(entryDate, { weekStartsOn: 1 });
+          if (format(entryWeekStart, "yyyy-MM-dd") !== format(weekStart, "yyyy-MM-dd")) {
+            await Earnings.calculateWeek(format(entryWeekStart, "yyyy-MM-dd"));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Single week calculation failed on save:", error);
+    } finally {
+      setIsCalculating(false);
+    }
     await fetchData();
   };
 
-  const handleDeleteEntry = async (entryId) => {
+  const handleDeleteEntry = async (entryId, entryDateStr) => {
     await TimeEntry.delete(entryId);
+    setIsCalculating(true);
+    try {
+      if (user?.is_calculator_enabled) {
+        await Earnings.calculateWeek(format(weekStart, "yyyy-MM-dd"));
+        if (entryDateStr) {
+          const entryDate = new Date(entryDateStr);
+          const entryWeekStart = fnsStartOfWeek(entryDate, { weekStartsOn: 1 });
+          if (format(entryWeekStart, "yyyy-MM-dd") !== format(weekStart, "yyyy-MM-dd")) {
+            await Earnings.calculateWeek(format(entryWeekStart, "yyyy-MM-dd"));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Single week calculation failed on delete:", error);
+    } finally {
+      setIsCalculating(false);
+    }
     await fetchData();
   };
 

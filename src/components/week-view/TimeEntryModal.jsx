@@ -149,7 +149,7 @@ export default function TimeEntryModal({
       } else {
         await TimeEntry.create(entryData);
       }
-      onSave && onSave();
+      onSave && onSave(date);
     } catch (err) {
       console.error("Failed to save entry:", err);
     } finally {
@@ -161,7 +161,7 @@ export default function TimeEntryModal({
     if (!entry || !onDelete) return;
     if (window.confirm("Are you sure you want to delete this time entry?")) {
       try {
-        await onDelete(entry.id);
+        await onDelete(entry.id, entry.date);
       } catch (err) {
         console.error("Failed to delete entry:", err);
       }

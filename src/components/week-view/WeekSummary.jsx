@@ -26,6 +26,9 @@ export default function WeekSummary(props) {
   const handleSaveWage = async () => {
     try {
       await Earnings.updateWeekWage(format(weekStart, "yyyy-MM-dd"), parseFloat(tempWage));
+      if (user?.is_calculator_enabled) {
+        await Earnings.calculateWeek(format(weekStart, "yyyy-MM-dd"));
+      }
       setIsEditingWage(false);
       onRefresh && onRefresh();
     } catch (err) {

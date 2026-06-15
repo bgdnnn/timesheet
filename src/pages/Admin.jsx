@@ -132,6 +132,14 @@ const AdminMobileView = ({ users, handleEditUser, handleDeleteUser, handleRoleCh
 );
 
 
+const formatFileSize = (bytes) => {
+    if (!bytes) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+};
+
 export default function AdminPage() {
     const [users, setUsers] = useState([]);
     const [backups, setBackups] = useState([]);
@@ -140,6 +148,8 @@ export default function AdminPage() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [isBackingUp, setIsBackingUp] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
+    const [signupEnabled, setSignupEnabled] = useState(true);
+    const [isUpdatingSignup, setIsUpdatingSignup] = useState(false);
     const isMobile = useIsMobile();
 
     const fetchUsers = useCallback(async () => {
@@ -164,10 +174,38 @@ export default function AdminPage() {
         }
     }, []);
 
+    const fetchSettings = useCallback(async () => {
+        try {
+            const res = await client.fetchJson('/admin/settings/signup_enabled');
+            setSignupEnabled(res.value === 'true');
+        } catch (error) {
+            console.error("Error fetching settings:", error);
+        }
+    }, []);
+
     useEffect(() => {
         fetchUsers();
         fetchBackups();
-    }, [fetchUsers, fetchBackups]);
+        fetchSettings();
+    }, [fetchUsers, fetchBackups, fetchSettings]);
+
+    const handleToggleSignup = async () => {
+        setIsUpdatingSignup(true);
+        const newValue = !signupEnabled;
+        try {
+            await client.fetchJson('/admin/settings/signup_enabled', {
+                method: 'POST',
+                body: { value: newValue ? 'true' : 'false' }
+            });
+            setSignupEnabled(newValue);
+            toast.success(`Public signups ${newValue ? 'enabled' : 'disabled'} successfully`);
+        } catch (error) {
+            console.error("Error toggling signup setting:", error);
+            toast.error("Failed to toggle signup status");
+        } finally {
+            setIsUpdatingSignup(false);
+        }
+    };
 
     const handleTriggerBackup = async () => {
         setIsBackingUp(true);
@@ -308,6 +346,34 @@ export default function AdminPage() {
                 )}
             </div>
 
+            {/* System Settings Section */}
+            <div className="space-y-6 pt-4">
+                <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-cyan-400" />
+                    <h2 className="text-xl font-bold">System Settings</h2>
+                </div>
+                <GlassCard className="p-6 border-cyan-500/10 hover:border-cyan-500/20 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h3 className="font-bold text-lg">Public Signups</h3>
+                        <p className="text-xs text-gray-400 mt-1">
+                            When disabled, the "Sign Up" button on the login screen is hidden and new Google user registration is blocked.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-sm font-semibold ${signupEnabled ? 'text-green-400' : 'text-amber-400'}`}>
+                            {signupEnabled ? 'ENABLED' : 'DISABLED'}
+                        </span>
+                        <Button
+                            onClick={handleToggleSignup}
+                            disabled={isUpdatingSignup}
+                            className={`px-4 py-2 font-bold rounded-xl ${signupEnabled ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}
+                        >
+                            {isUpdatingSignup ? <RefreshCw className="h-4 w-4 animate-spin" /> : signupEnabled ? 'Disable Signups' : 'Enable Signups'}
+                        </Button>
+                    </div>
+                </GlassCard>
+            </div>
+
             {/* Backup Management Section */}
             <div className="space-y-6 pt-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -335,7 +401,7 @@ export default function AdminPage() {
                                             <Database className="h-4 w-4" />
                                         </div>
                                         <p className="text-sm font-bold truncate" title={backup.filename || ""}>
-                                            {(backup.filename || "").replace("timesheet_", "").replace(".sql.gz", "")}
+                                            {(backup.filename || "").replace("timesheet_", "").replace(".sql.gz", "").replace(".tar.gz", "")}
                                         </p>
                                     </div>
                                     <div className="space-y-1">
@@ -346,7 +412,7 @@ export default function AdminPage() {
                                     </div>
                                     <div className="mt-2 space-y-1">
                                         <p className="text-[10px] text-gray-400 uppercase font-bold">Size</p>
-                                        <p className="text-xs">{backup.size_bytes ? (backup.size_bytes / 1024).toFixed(1) : "0"} KB</p>
+                                        <p className="text-xs">{formatFileSize(backup.size_bytes)}</p>
                                     </div>
                                 </div>
                                 

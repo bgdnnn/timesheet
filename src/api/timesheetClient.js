@@ -60,9 +60,9 @@ const auth = {
   async updateMyUserData(payload) {
     return fetchJson("/me", { method: "PUT", body: payload });
   },
-  loginWithRedirect(returnTo) {
+  loginWithRedirect(returnTo, action = "login") {
     const rt = encodeURIComponent(returnTo || window.location.href);
-    window.location.assign(`${BASE}/auth/google/login?returnTo=${rt}`);
+    window.location.assign(`${BASE}/auth/google/login?returnTo=${rt}&action=${action}`);
   },
   async logout() {
     try { await fetchJson("/auth/logout", { method: "POST" }); } catch {}
