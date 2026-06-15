@@ -15,7 +15,13 @@ import {
   Loader2,
   CheckCircle2,
   FilterX,
-  ExternalLink
+  ExternalLink,
+  Mail,
+  Key,
+  Folder,
+  Info,
+  BookOpen,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +85,8 @@ export default function PayslipFiles() {
   const [isP60UploadModalOpen, setIsP60UploadModalOpen] = useState(false);
   const [isUploading, setIsUpload] = useState(false);
   const [activeTab, setActiveTab] = useState("payslips");
+  const [userProfile, setUserProfile] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
   
   // Filtering & Sorting State
   const currentTaxYear = useMemo(() => getTaxYearString(new Date()), []);
@@ -116,7 +124,44 @@ export default function PayslipFiles() {
 
   useEffect(() => {
     fetchFiles();
+    client.fetchJson("/me")
+      .then(data => setUserProfile(data))
+      .catch(err => console.error("Failed to load user profile:", err));
   }, []);
+
+  const handleProfileFieldChange = (field, value) => {
+    setUserProfile(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    const toastId = toast.loading("Saving configuration...");
+    try {
+      const updated = await client.fetchJson("/me", {
+        method: "PUT",
+        body: {
+          is_auto_upload_enabled: userProfile.is_auto_upload_enabled,
+          auto_upload_provider: userProfile.auto_upload_provider || "",
+          auto_upload_folder: userProfile.auto_upload_folder || "",
+          auto_upload_company: userProfile.auto_upload_company || "",
+          auto_upload_email: userProfile.auto_upload_email || "",
+          auto_upload_app_password: userProfile.auto_upload_app_password || "",
+          pdf_password: userProfile.pdf_password || "",
+        }
+      });
+      setUserProfile(updated);
+      toast.success("Settings saved successfully", { id: toastId });
+    } catch (err) {
+      console.error("Failed to save auto upload settings:", err);
+      toast.error("Failed to save settings", { id: toastId });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -441,42 +486,91 @@ export default function PayslipFiles() {
         >
           P60 End-of-Year Statements
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("autoUpload");
+          }}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "autoUpload" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          Automatic Upload
+        </button>
       </div>
 
       {/* Filters & Sorting */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <GlassCard className="md:col-span-1 p-4">
-            <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Year</Label>
-            <select 
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500/50"
-            >
-                <option value="" className="bg-sky-900">All Years</option>
-                {uniqueYears.map(y => (
-                    <option key={y} value={y} className="bg-sky-900">{y}</option>
-                ))}
-            </select>
-        </GlassCard>
+      {activeTab !== "autoUpload" && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <GlassCard className="md:col-span-1 p-4">
+              <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Year</Label>
+              <select 
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500/50"
+              >
+                  <option value="" className="bg-sky-900">All Years</option>
+                  {uniqueYears.map(y => (
+                      <option key={y} value={y} className="bg-sky-900">{y}</option>
+                  ))}
+              </select>
+          </GlassCard>
 
-        {activeTab === "payslips" ? (
-          <>
-            <GlassCard className="md:col-span-1 p-4">
-                <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Week</Label>
-                <Input 
-                    type="number"
-                    placeholder="e.g. 50"
-                    value={filterWeek}
-                    onChange={(e) => setFilterWeek(e.target.value)}
-                    className="bg-white/5 border-white/10 h-10"
-                />
-            </GlassCard>
+          {activeTab === "payslips" ? (
+            <>
+              <GlassCard className="md:col-span-1 p-4">
+                  <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Week</Label>
+                  <Input 
+                      type="number"
+                      placeholder="e.g. 50"
+                      value={filterWeek}
+                      onChange={(e) => setFilterWeek(e.target.value)}
+                      className="bg-white/5 border-white/10 h-10"
+                  />
+              </GlassCard>
 
-            <GlassCard className="md:col-span-2 flex flex-wrap items-center justify-between gap-4 p-4">
+              <GlassCard className="md:col-span-2 flex flex-wrap items-center justify-between gap-4 p-4">
+                  <div className="flex items-center gap-4">
+                      <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
+                      <div className="flex gap-2">
+                          {["date", "week"].map(f => (
+                              <button
+                                  key={f}
+                                  onClick={() => {
+                                      if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                                      else { setSortField(f); setSortOrder("desc"); }
+                                  }}
+                                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
+                              >
+                                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                                  {sortField === f && <ArrowUpDown className="h-3 w-3" />}
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+                  <div className="flex gap-2">
+                      {(filterYear || filterWeek) && (
+                          <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => { setFilterYear(""); setFilterWeek(""); }}
+                              title="Clear Filters"
+                              className="text-rose-400 hover:bg-rose-500/10"
+                          >
+                              <FilterX className="h-4 w-4" />
+                          </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={fetchFiles} className="text-gray-400 hover:text-white">
+                          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                      </Button>
+                  </div>
+              </GlassCard>
+            </>
+          ) : (
+            <GlassCard className="md:col-span-3 flex flex-wrap items-center justify-between gap-4 p-4">
                 <div className="flex items-center gap-4">
                     <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
                     <div className="flex gap-2">
-                        {["date", "week"].map(f => (
+                        {["date", "year"].map(f => (
                             <button
                                 key={f}
                                 onClick={() => {
@@ -492,11 +586,11 @@ export default function PayslipFiles() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {(filterYear || filterWeek) && (
+                    {filterYear && (
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            onClick={() => { setFilterYear(""); setFilterWeek(""); }}
+                            onClick={() => { setFilterYear(""); }}
                             title="Clear Filters"
                             className="text-rose-400 hover:bg-rose-500/10"
                         >
@@ -508,46 +602,9 @@ export default function PayslipFiles() {
                     </Button>
                 </div>
             </GlassCard>
-          </>
-        ) : (
-          <GlassCard className="md:col-span-3 flex flex-wrap items-center justify-between gap-4 p-4">
-              <div className="flex items-center gap-4">
-                  <span className="text-xs text-gray-400 font-bold uppercase">Sort:</span>
-                  <div className="flex gap-2">
-                      {["date", "year"].map(f => (
-                          <button
-                              key={f}
-                              onClick={() => {
-                                  if (sortField === f) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                                  else { setSortField(f); setSortOrder("desc"); }
-                              }}
-                              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${sortField === f ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white bg-white/5"}`}
-                          >
-                              {f.charAt(0).toUpperCase() + f.slice(1)}
-                              {sortField === f && <ArrowUpDown className="h-3 w-3" />}
-                          </button>
-                      ))}
-                  </div>
-              </div>
-              <div className="flex gap-2">
-                  {filterYear && (
-                      <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => { setFilterYear(""); }}
-                          title="Clear Filters"
-                          className="text-rose-400 hover:bg-rose-500/10"
-                      >
-                          <FilterX className="h-4 w-4" />
-                      </Button>
-                  )}
-                  <Button variant="ghost" size="icon" onClick={fetchFiles} className="text-gray-400 hover:text-white">
-                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  </Button>
-              </div>
-          </GlassCard>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Progress Overlay */}
       <AnimatePresence>
@@ -583,93 +640,261 @@ export default function PayslipFiles() {
         )}
       </AnimatePresence>
 
-      {/* Files List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout">
-          {filteredAndSortedFiles.map((file) => (
-            <motion.div
-              key={file.id}
-              layout
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-            >
-              <GlassCard className="group hover:border-cyan-500/30 transition-all duration-300">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 transition-all group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 text-cyan-400">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <div className="flex gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleAction(file, "view")}
-                      title={isMobile ? "Open PDF" : "View PDF"}
-                      className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
-                    >
-                      {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleAction(file, "download")}
-                      title="Download PDF"
-                      className="text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full h-8 w-8"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleDelete(file)}
-                      title="Delete"
-                      className="text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-full h-8 w-8"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-bold text-lg leading-none mb-2">
-                    {file.tax_week === 0 ? `P60 Statement - Year ${file.tax_year}` : file.filename}
-                  </h3>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span>{format(new Date(file.process_date), "dd MMM yyyy")}</span>
+      {/* Files List / Automatic Upload Tab */}
+      {activeTab !== "autoUpload" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence mode="popLayout">
+            {filteredAndSortedFiles.map((file) => (
+              <motion.div
+                key={file.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <GlassCard className="group hover:border-cyan-500/30 transition-all duration-300">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 transition-all group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 text-cyan-400">
+                      <FileText className="h-6 w-6" />
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Hash className="h-3 w-3" />
-                      {file.tax_week === 0 ? (
-                        <span>Year {file.tax_year}</span>
-                      ) : (
-                        <span>Tax Week {file.tax_week} • Year {file.tax_year}</span>
-                      )}
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleAction(file, "view")}
+                        title={isMobile ? "Open PDF" : "View PDF"}
+                        className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
+                      >
+                        {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleAction(file, "download")}
+                        title="Download PDF"
+                        className="text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full h-8 w-8"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDelete(file)}
+                        title="Delete"
+                        className="text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-full h-8 w-8"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                  
+                  <div>
+                    <h3 className="font-bold text-lg leading-none mb-2">
+                      {file.tax_week === 0 ? `P60 Statement - Year ${file.tax_year}` : file.filename}
+                    </h3>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Calendar className="h-3 w-3" />
+                        <span>{format(new Date(file.process_date), "dd MMM yyyy")}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Hash className="h-3 w-3" />
+                        {file.tax_week === 0 ? (
+                          <span>Year {file.tax_year}</span>
+                        ) : (
+                          <span>Tax Week {file.tax_week} • Year {file.tax_year}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-        {filteredAndSortedFiles.length === 0 && !loading && !isUploading && (
-          <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
-            <FileText className="h-16 w-16 text-white/10 mb-4" />
-            <p className="text-gray-400 font-medium">
-              {activeTab === "p60" ? "No P60 statements found matching your filters." : "No payslips found matching your filters."}
-            </p>
-            <Button 
-              variant="link" 
-              onClick={() => { setFilterYear(""); setFilterWeek(""); }}
-              className="text-cyan-400 mt-2 hover:text-cyan-300"
-            >
-              Clear all filters
-            </Button>
+          {filteredAndSortedFiles.length === 0 && !loading && !isUploading && (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+              <FileText className="h-16 w-16 text-white/10 mb-4" />
+              <p className="text-gray-400 font-medium">
+                {activeTab === "p60" ? "No P60 statements found matching your filters." : "No payslips found matching your filters."}
+              </p>
+              <Button 
+                variant="link" 
+                onClick={() => { setFilterYear(""); setFilterWeek(""); }}
+                className="text-cyan-400 mt-2 hover:text-cyan-300"
+              >
+                Clear all filters
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        userProfile && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Settings Form */}
+            <GlassCard className="border-white/10 space-y-6">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <Mail className="h-6 w-6 text-cyan-400" />
+                <div>
+                  <h2 className="text-xl font-bold">Mailbox Auto-Upload</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Configure automatic payslip PDF extraction from your email.</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-6">
+                {/* Toggle switch */}
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="space-y-0.5 pr-4">
+                    <Label className="text-sm font-bold block">Status</Label>
+                    <span className="text-xs text-gray-400">Enable background email scanning for new payslips.</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox" 
+                      checked={userProfile.is_auto_upload_enabled} 
+                      onChange={(e) => handleProfileFieldChange("is_auto_upload_enabled", e.target.checked)} 
+                      className="sr-only peer" 
+                    />
+                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                  </label>
+                </div>
+
+                {userProfile.is_auto_upload_enabled && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs font-bold text-gray-400 uppercase">Mail Provider</Label>
+                        <select
+                          value={userProfile.auto_upload_provider || "gmail"}
+                          onChange={(e) => handleProfileFieldChange("auto_upload_provider", e.target.value)}
+                          className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500/50"
+                        >
+                          <option value="gmail" className="bg-gray-900 text-white">Gmail</option>
+                          <option value="yahoo" className="bg-gray-900 text-white">Yahoo Mail</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-bold text-gray-400 uppercase">IMAP Folder</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. INBOX or Job"
+                          value={userProfile.auto_upload_folder || ""}
+                          onChange={(e) => handleProfileFieldChange("auto_upload_folder", e.target.value)}
+                          className="mt-1.5 bg-white/5 border-white/10"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-bold text-gray-400 uppercase">Company Name / Subject Filter (Optional)</Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Payslip"
+                        value={userProfile.auto_upload_company || ""}
+                        onChange={(e) => handleProfileFieldChange("auto_upload_company", e.target.value)}
+                        className="mt-1.5 bg-white/5 border-white/10"
+                      />
+                      <span className="text-[10px] text-gray-500 mt-1 block">Filters emails to only scan those containing this word in the subject.</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs font-bold text-gray-400 uppercase">Email Username</Label>
+                        <Input
+                          type="email"
+                          placeholder="your_email@gmail.com"
+                          value={userProfile.auto_upload_email || ""}
+                          onChange={(e) => handleProfileFieldChange("auto_upload_email", e.target.value)}
+                          className="mt-1.5 bg-white/5 border-white/10"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-bold text-gray-400 uppercase">Mail App Password</Label>
+                        <Input
+                          type="password"
+                          placeholder="16-character app password"
+                          value={userProfile.auto_upload_app_password || ""}
+                          onChange={(e) => handleProfileFieldChange("auto_upload_app_password", e.target.value)}
+                          className="mt-1.5 bg-white/5 border-white/10"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/5 pt-4">
+                      <Label className="text-xs font-bold text-gray-400 uppercase flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5 text-cyan-400" />
+                        PDF Decryption Password (Optional)
+                      </Label>
+                      <Input
+                        type="password"
+                        placeholder="Enter password if your payslip PDFs are locked"
+                        value={userProfile.pdf_password || ""}
+                        onChange={(e) => handleProfileFieldChange("pdf_password", e.target.value)}
+                        className="mt-1.5 bg-white/5 border-white/10"
+                      />
+                      <span className="text-[10px] text-gray-500 mt-1 block">Your app password and PDF password are encrypted in the database.</span>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-11 rounded-xl shadow-lg active:scale-[0.98] transition-all"
+                >
+                  {savingProfile ? "Saving..." : "Save Settings"}
+                </Button>
+              </form>
+            </GlassCard>
+
+            {/* Guide / Instructions Readme */}
+            <GlassCard className="border-white/10 h-fit space-y-6">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <BookOpen className="h-6 w-6 text-cyan-400" />
+                <h2 className="text-xl font-bold">Setup Instructions</h2>
+              </div>
+
+              {userProfile.auto_upload_provider === "gmail" ? (
+                <div className="space-y-4 text-sm text-gray-300">
+                  <div className="bg-cyan-500/10 border border-cyan-500/20 p-3 rounded-lg flex gap-2 text-xs text-cyan-400">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>Gmail requires a <strong>Google App Password</strong>. Your regular login password will not work.</span>
+                  </div>
+
+                  <ol className="list-decimal list-inside space-y-3">
+                    <li>Go to your <a href="https://myaccount.google.com/" target="_blank" rel="noreferrer" className="text-cyan-400 underline hover:text-cyan-300">Google Account</a> console.</li>
+                    <li>Click on **Security** on the left menu.</li>
+                    <li>Under **How you sign in to Google**, ensure **2-Step Verification** is turned on.</li>
+                    <li>Search for **App passwords** in the top search bar, or go into 2-Step Verification and scroll to the bottom.</li>
+                    <li>Enter a name for the app (e.g., `Timesheet App`) and click **Create**.</li>
+                    <li>Copy the generated **16-character password** (yellow box) and paste it into the **Mail App Password** field.</li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="space-y-4 text-sm text-gray-300">
+                  <div className="bg-cyan-500/10 border border-cyan-500/20 p-3 rounded-lg flex gap-2 text-xs text-cyan-400">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>Yahoo Mail requires a <strong>Yahoo App Password</strong>. Your regular login password will not work.</span>
+                  </div>
+
+                  <ol className="list-decimal list-inside space-y-3">
+                    <li>Go to your Yahoo Account Info page.</li>
+                    <li>Select the **Account Security** tab on the left.</li>
+                    <li>Scroll down and click **Generate app password** (or **Manage app passwords**).</li>
+                    <li>Select your app type or enter a custom name (e.g. `Timesheet App`) and click **Generate**.</li>
+                    <li>Copy the generated **16-character password** and paste it into the **Mail App Password** field.</li>
+                  </ol>
+                </div>
+              )}
+            </GlassCard>
           </div>
-        )}
-      </div>
+        )
+      )}
 
       {/* View Modal (Laptop Only) */}
       <AnimatePresence>
