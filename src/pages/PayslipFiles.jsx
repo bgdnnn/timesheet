@@ -139,7 +139,7 @@ export default function PayslipFiles() {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setSavingProfile(true);
-    const toastId = toast.loading("Saving configuration...");
+    const toastId = toast.loading("Saving configuration & verifying mailbox...");
     try {
       const updated = await client.fetchJson("/me", {
         method: "PUT",
@@ -154,10 +154,24 @@ export default function PayslipFiles() {
         }
       });
       setUserProfile(updated);
-      toast.success("Settings saved successfully", { id: toastId });
+      toast.success("Settings saved & payslips imported successfully!", { id: toastId });
+      fetchFiles();
+      setActiveTab("payslips");
     } catch (err) {
       console.error("Failed to save auto upload settings:", err);
-      toast.error("Failed to save settings", { id: toastId });
+      let errorMsg = "Failed to save settings";
+      try {
+        const match = err.message.match(/HTTP \d+: (\{.*\})/);
+        if (match) {
+          const parsed = JSON.parse(match[1]);
+          if (parsed && parsed.detail) {
+            errorMsg = parsed.detail;
+          }
+        }
+      } catch (parseErr) {
+        console.error("Failed to parse HTTP error detail:", parseErr);
+      }
+      toast.error(errorMsg, { id: toastId, duration: 8000 });
     } finally {
       setSavingProfile(false);
     }
