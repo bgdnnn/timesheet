@@ -335,7 +335,7 @@ export default function HolidaysPage() {
               </p>
 
               {bankHolidays[selectedDateStr] && (
-                <div className="mb-6 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs flex gap-2 items-start">
+                <div className="mb-6 p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs flex gap-2 items-start">
                   <Info className="h-4 w-4 mt-0.5 shrink-0" />
                   <div>
                     <span className="font-bold">UK Bank Holiday:</span> {bankHolidays[selectedDateStr]}. 
@@ -531,7 +531,7 @@ export default function HolidaysPage() {
         {/* Calendar Legend */}
         <div className="flex flex-wrap gap-4 justify-center items-center mb-6 text-xs md:text-sm font-semibold border-b border-white/5 pb-4">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-blue-500" />
+            <span className="w-3 h-3 rounded bg-violet-500" />
             <span className="text-gray-300">UK Bank Holiday</span>
           </div>
           <div className="flex items-center gap-2">
@@ -562,7 +562,7 @@ export default function HolidaysPage() {
             let statusBadge = null;
 
             if (isBankHoliday) {
-              bgClass = "bg-blue-600/25 hover:bg-blue-600/40 border-blue-500/40 text-blue-200 shadow-lg shadow-blue-600/5";
+              bgClass = "bg-violet-600/25 hover:bg-violet-600/40 border-violet-500/40 text-violet-200 shadow-lg shadow-violet-600/5";
             }
             
             if (hasHoliday) {
@@ -590,7 +590,7 @@ export default function HolidaysPage() {
                 {/* Indicators / Tooltips */}
                 <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
                   {isBankHoliday && (
-                    <span className="text-[7px] md:text-[9px] font-bold text-blue-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
+                    <span className="text-[7px] md:text-[9px] font-bold text-violet-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
                       {isBankHoliday}
                     </span>
                   )}
