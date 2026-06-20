@@ -73,6 +73,7 @@ export default function HolidaysPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [viewMode, setViewMode] = useState("month"); // "month" or "year"
   const [userHolidays, setUserHolidays] = useState([]);
   const [bankHolidays, setBankHolidays] = useState({});
   const [loading, setLoading] = useState(true);
@@ -175,22 +176,27 @@ export default function HolidaysPage() {
     };
   }, [userHolidays]);
 
-  // Calendar calculations
-  const calendarCells = useMemo(() => {
-    const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-    
-    // Convert getDay() standard (0 = Sun, 1 = Mon...) to Mon = 0, Sun = 6
+  function formatDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  // Calendar cells generation helper for a specific month
+  const getCellsForMonth = useCallback((year, month) => {
+    const firstDayOfMonth = new Date(year, month, 1);
     let startDayOfWeek = firstDayOfMonth.getDay();
     startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
 
     const cells = [];
 
     // 1. Previous month padding days
-    const lastDayOfPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const day = lastDayOfPrevMonth - i;
-      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
       const d = new Date(prevYear, prevMonth, day);
       const dateStr = formatDate(d);
       cells.push({
@@ -202,9 +208,9 @@ export default function HolidaysPage() {
     }
 
     // 2. Current month days
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(currentYear, currentMonth, day);
+      const d = new Date(year, month, day);
       const dateStr = formatDate(d);
       cells.push({
         date: d,
@@ -218,8 +224,8 @@ export default function HolidaysPage() {
     const totalCells = 42;
     const remaining = totalCells - cells.length;
     for (let day = 1; day <= remaining; day++) {
-      const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-      const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+      const nextMonth = month === 11 ? 0 : month + 1;
+      const nextYear = month === 11 ? year + 1 : year;
       const d = new Date(nextYear, nextMonth, day);
       const dateStr = formatDate(d);
       cells.push({
@@ -231,14 +237,11 @@ export default function HolidaysPage() {
     }
 
     return cells;
-  }, [currentYear, currentMonth]);
+  }, []);
 
-  function formatDate(d) {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
+  const calendarCells = useMemo(() => {
+    return getCellsForMonth(currentYear, currentMonth);
+  }, [currentYear, currentMonth, getCellsForMonth]);
 
   // Month navigation
   const prevMonth = () => {
@@ -500,7 +503,7 @@ export default function HolidaysPage() {
                       onClick={() => setLeaveType("paid")}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
                         leaveType === "paid"
-                          ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-500/5"
+                          ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-md shadow-emerald-500/10 font-bold"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
@@ -512,7 +515,7 @@ export default function HolidaysPage() {
                       onClick={() => setLeaveType("gift")}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
                         leaveType === "gift"
-                          ? "bg-fuchsia-500/15 border-fuchsia-500/50 text-fuchsia-300 shadow-md shadow-fuchsia-500/5"
+                          ? "bg-fuchsia-500/20 border-fuchsia-400 text-fuchsia-300 shadow-md shadow-fuchsia-500/10 font-bold"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
@@ -524,7 +527,7 @@ export default function HolidaysPage() {
                       onClick={() => setLeaveType("unpaid")}
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
                         leaveType === "unpaid"
-                          ? "bg-rose-500/15 border-rose-500/50 text-rose-300 shadow-md shadow-rose-500/5"
+                          ? "bg-rose-500/20 border-rose-400 text-rose-300 shadow-md shadow-rose-500/10 font-bold"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
@@ -571,7 +574,7 @@ export default function HolidaysPage() {
         )}
       </AnimatePresence>
 
-      {/* Header & Year Selector */}
+      {/* Header & View Switcher / Year Selector */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-black bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">
@@ -580,21 +583,45 @@ export default function HolidaysPage() {
           <p className="text-gray-400 text-sm mt-1">Track paid holidays, unpaid leave, and public bank holidays.</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Leave Year:</Label>
-          <select
-            value={currentYear}
-            onChange={(e) => {
-              setCurrentYear(parseInt(e.target.value));
-            }}
-            className="bg-white/15 border border-white/20 rounded-xl px-4 py-2 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
-          >
-            {yearOptions.map(yr => (
-              <option key={yr} value={yr} className="bg-gray-900 text-white font-semibold">
-                {yr}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
+          {/* View Toggle */}
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
+            <Button
+              variant={viewMode === "month" ? "default" : "ghost"}
+              onClick={() => setViewMode("month")}
+              className={`px-3 py-1.5 h-8 text-xs font-bold rounded-lg transition-all ${
+                viewMode === "month" ? "bg-white/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Month View
+            </Button>
+            <Button
+              variant={viewMode === "year" ? "default" : "ghost"}
+              onClick={() => setViewMode("year")}
+              className={`px-3 py-1.5 h-8 text-xs font-bold rounded-lg transition-all ${
+                viewMode === "year" ? "bg-white/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Year View
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Leave Year:</Label>
+            <select
+              value={currentYear}
+              onChange={(e) => {
+                setCurrentYear(parseInt(e.target.value));
+              }}
+              className="bg-white/15 border border-white/20 rounded-xl px-4 py-2 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
+            >
+              {yearOptions.map(yr => (
+                <option key={yr} value={yr} className="bg-gray-900 text-white font-semibold">
+                  {yr}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -676,147 +703,242 @@ export default function HolidaysPage() {
         </GlassCard>
       </div>
 
-      {/* Main Calendar View */}
-      <GlassCard className="p-4 md:p-6 mb-6">
-        {/* Calendar Navigation */}
-        <div className="flex justify-between items-center mb-6">
-          <Button
-            variant="ghost"
-            onClick={prevMonth}
-            className="hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center p-0"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
+      {/* Main Calendar View Area */}
+      {viewMode === "month" ? (
+        <GlassCard className="p-4 md:p-6 mb-6">
+          {/* Calendar Navigation */}
+          <div className="flex justify-between items-center mb-6">
+            <Button
+              variant="ghost"
+              onClick={prevMonth}
+              className="hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center p-0"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Button>
 
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight">
-            {MONTH_NAMES[currentMonth]} {currentYear}
-          </h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+              {MONTH_NAMES[currentMonth]} {currentYear}
+            </h2>
 
-          <Button
-            variant="ghost"
-            onClick={nextMonth}
-            className="hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center p-0"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-        </div>
+            <Button
+              variant="ghost"
+              onClick={nextMonth}
+              className="hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center p-0"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          </div>
 
-        {/* Calendar Legend */}
-        <div className="flex flex-wrap gap-4 justify-center items-center mb-6 text-xs md:text-sm font-semibold border-b border-white/5 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-yellow-400" />
-            <span className="text-gray-300">UK Bank Holiday</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-emerald-400" />
-            <span className="text-gray-300">Paid Holiday</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-fuchsia-400" />
-            <span className="text-gray-300">Holiday Gift</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-rose-400" />
-            <span className="text-gray-300">Unpaid Leave</span>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 md:gap-2">
-          {/* Weekday headers */}
-          {WEEKDAYS.map(day => (
-            <div key={day} className="text-center font-bold text-[10px] md:text-xs text-gray-500 uppercase tracking-widest pb-2">
-              {day}
+          {/* Calendar Legend */}
+          <div className="flex flex-wrap gap-4 justify-center items-center mb-6 text-xs md:text-sm font-bold border-b border-white/5 pb-4">
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
+              <span className="text-gray-300">UK Bank Holiday</span>
             </div>
-          ))}
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+              <span className="text-gray-300">Paid Holiday</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded bg-fuchsia-500 shadow-[0_0_8px_rgba(217,70,239,0.4)]" />
+              <span className="text-gray-300">Holiday Gift</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]" />
+              <span className="text-gray-300">Unpaid Leave</span>
+            </div>
+          </div>
 
-          {/* Day cells */}
-          {calendarCells.map((cell, idx) => {
-            const hasHoliday = holidaysMap.get(cell.dateStr);
-            const isBankHoliday = bankHolidays[cell.dateStr];
-            const isHighlighted = isInDragRange(cell.dateStr);
-            
-            let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-white";
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
+            {/* Weekday headers */}
+            {WEEKDAYS.map(day => (
+              <div key={day} className="text-center font-bold text-[10px] md:text-xs text-gray-500 uppercase tracking-widest pb-2">
+                {day}
+              </div>
+            ))}
 
-            if (isBankHoliday) {
-              bgClass = "bg-yellow-500/30 hover:bg-yellow-500/45 border-yellow-400/80 text-yellow-100 shadow-[0_0_15px_rgba(234,179,8,0.15)]";
-            }
-            
-            if (hasHoliday) {
-              if (hasHoliday.type === "paid") {
-                bgClass = "bg-emerald-500/30 hover:bg-emerald-500/45 border-emerald-400/80 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.15)]";
-              } else if (hasHoliday.type === "gift") {
-                bgClass = "bg-fuchsia-500/30 hover:bg-fuchsia-500/45 border-fuchsia-400/80 text-fuchsia-100 shadow-[0_0_15px_rgba(217,70,239,0.15)]";
-              } else if (hasHoliday.type === "unpaid") {
-                bgClass = "bg-rose-500/30 hover:bg-rose-500/45 border-rose-400/80 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.15)]";
+            {/* Day cells */}
+            {calendarCells.map((cell, idx) => {
+              const hasHoliday = holidaysMap.get(cell.dateStr);
+              const isBankHoliday = bankHolidays[cell.dateStr];
+              const isHighlighted = isInDragRange(cell.dateStr);
+              
+              // Base Style: high visibility neon highlights
+              let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-gray-300";
+              let textColor = "text-white";
+              let shadowClass = "";
+
+              if (isBankHoliday) {
+                bgClass = "bg-yellow-400 border-yellow-300";
+                textColor = "text-gray-950 font-black";
+                shadowClass = "shadow-[0_0_12px_rgba(250,204,21,0.25)] hover:bg-yellow-300 hover:scale-[1.02]";
               }
-            }
+              
+              if (hasHoliday) {
+                if (hasHoliday.type === "paid") {
+                  bgClass = "bg-emerald-500 border-emerald-400";
+                  textColor = "text-white font-black";
+                  shadowClass = "shadow-[0_0_12px_rgba(16,185,129,0.25)] hover:bg-emerald-400 hover:scale-[1.02]";
+                } else if (hasHoliday.type === "gift") {
+                  bgClass = "bg-fuchsia-500 border-fuchsia-400";
+                  textColor = "text-white font-black";
+                  shadowClass = "shadow-[0_0_12px_rgba(217,70,239,0.25)] hover:bg-fuchsia-400 hover:scale-[1.02]";
+                } else if (hasHoliday.type === "unpaid") {
+                  bgClass = "bg-rose-500 border-rose-400";
+                  textColor = "text-white font-black";
+                  shadowClass = "shadow-[0_0_12px_rgba(244,63,94,0.25)] hover:bg-rose-400 hover:scale-[1.02]";
+                }
+              }
 
-            // Apply dragging selection highlight
-            if (isHighlighted) {
-              bgClass = "bg-sky-500/35 hover:bg-sky-500/50 border-sky-400 text-sky-100 scale-[1.02] shadow-[0_0_15px_rgba(56,189,248,0.3)] ring-2 ring-sky-400/30 z-10";
-            }
+              // Apply dragging selection highlight
+              if (isHighlighted) {
+                bgClass = "bg-sky-400 border-sky-300 scale-[1.02] ring-2 ring-sky-400/40 z-10";
+                textColor = "text-gray-950 font-black";
+                shadowClass = "shadow-[0_0_15px_rgba(56,189,248,0.45)]";
+              }
 
-            // Muted styles for padding days from adjacent months
-            const opacityClass = cell.isCurrentMonth ? "opacity-100" : "opacity-35";
+              // Muted styles for padding days from adjacent months
+              const opacityClass = cell.isCurrentMonth ? "opacity-100" : "opacity-35";
 
-            let bulletColor = null;
-            if (hasHoliday) {
-              if (hasHoliday.type === "paid") bulletColor = "bg-emerald-400";
-              else if (hasHoliday.type === "gift") bulletColor = "bg-fuchsia-400";
-              else if (hasHoliday.type === "unpaid") bulletColor = "bg-rose-400";
-            }
+              let bulletColor = null;
+              if (hasHoliday) {
+                if (hasHoliday.type === "paid") bulletColor = "bg-emerald-200 border-emerald-600";
+                else if (hasHoliday.type === "gift") bulletColor = "bg-fuchsia-200 border-fuchsia-600";
+                else if (hasHoliday.type === "unpaid") bulletColor = "bg-rose-200 border-rose-600";
+              }
 
+              return (
+                <button
+                  key={idx}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleMouseDown(cell.dateStr);
+                  }}
+                  onMouseEnter={() => handleMouseEnter(cell.dateStr)}
+                  className={`flex flex-col items-center justify-between p-2 md:p-3 aspect-square border rounded-xl transition-all duration-200 relative group overflow-hidden ${bgClass} ${opacityClass} ${shadowClass}`}
+                >
+                  {/* Day number */}
+                  <span className={`text-sm md:text-base self-start ${textColor}`}>
+                    {cell.dayNumber}
+                  </span>
+
+                  {/* Indicators / Tooltips */}
+                  <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
+                    {isBankHoliday && !isHighlighted && (
+                      <span className="text-[7px] md:text-[9px] font-black text-gray-900 leading-tight block text-left truncate w-full" title={isBankHoliday}>
+                        {isBankHoliday}
+                      </span>
+                    )}
+                    {hasHoliday && hasHoliday.notes && !isHighlighted && (
+                      <span className="text-[7px] md:text-[9px] text-gray-100 italic leading-tight block text-left truncate w-full" title={hasHoliday.notes}>
+                        "{hasHoliday.notes}"
+                      </span>
+                    )}
+                    {isHighlighted && (
+                      <span className="text-[7px] md:text-[9px] font-black text-sky-950 leading-tight block text-center truncate w-full">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bullet indicator border */}
+                  {hasHoliday && !isHighlighted && bulletColor && (
+                    <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full border ${bulletColor}`} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </GlassCard>
+      ) : (
+        /* Full Year View Grid of 12 Months */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mb-6">
+          {MONTH_NAMES.map((monthName, monthIndex) => {
+            const cells = getCellsForMonth(currentYear, monthIndex);
             return (
-              <button
-                key={idx}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleMouseDown(cell.dateStr);
-                }}
-                onMouseEnter={() => handleMouseEnter(cell.dateStr)}
-                className={`flex flex-col items-center justify-between p-2 md:p-3 aspect-square border rounded-xl transition-all duration-200 relative group overflow-hidden ${bgClass} ${opacityClass}`}
-              >
-                {/* Day number */}
-                <span className="text-sm md:text-base font-black self-start">
-                  {cell.dayNumber}
-                </span>
+              <GlassCard key={monthIndex} className="p-4 flex flex-col justify-between shadow-lg">
+                <h3 className="text-center font-bold text-sm mb-3 text-sky-300 uppercase tracking-widest border-b border-white/5 pb-2">
+                  {monthName}
+                </h3>
+                
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Weekday letters */}
+                  {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                    <div key={i} className="text-center font-bold text-[9px] text-gray-500 pb-1">
+                      {d}
+                    </div>
+                  ))}
+                  
+                  {/* Day cells (hiding padding days in year view) */}
+                  {cells.map((cell, idx) => {
+                    const hasHoliday = holidaysMap.get(cell.dateStr);
+                    const isBankHoliday = bankHolidays[cell.dateStr];
+                    const isHighlighted = isInDragRange(cell.dateStr);
+                    
+                    let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-gray-300";
+                    let textColor = "text-white";
+                    let shadowClass = "";
 
-                {/* Indicators / Tooltips */}
-                <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
-                  {isBankHoliday && !isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] font-black text-yellow-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
-                      {isBankHoliday}
-                    </span>
-                  )}
-                  {hasHoliday && hasHoliday.notes && !isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] text-gray-300 italic leading-tight block text-left truncate w-full" title={hasHoliday.notes}>
-                      "{hasHoliday.notes}"
-                    </span>
-                  )}
-                  {isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] font-bold text-sky-200 leading-tight block text-center truncate w-full">
-                      Selected
-                    </span>
-                  )}
+                    if (isBankHoliday) {
+                      bgClass = "bg-yellow-400 border-yellow-300";
+                      textColor = "text-gray-950 font-bold";
+                      shadowClass = "shadow-[0_0_8px_rgba(250,204,21,0.25)] hover:bg-yellow-300";
+                    }
+                    
+                    if (hasHoliday) {
+                      if (hasHoliday.type === "paid") {
+                        bgClass = "bg-emerald-500 border-emerald-400";
+                        textColor = "text-white font-bold";
+                        shadowClass = "shadow-[0_0_8px_rgba(16,185,129,0.25)] hover:bg-emerald-400";
+                      } else if (hasHoliday.type === "gift") {
+                        bgClass = "bg-fuchsia-500 border-fuchsia-400";
+                        textColor = "text-white font-bold";
+                        shadowClass = "shadow-[0_0_8px_rgba(217,70,239,0.25)] hover:bg-fuchsia-400";
+                      } else if (hasHoliday.type === "unpaid") {
+                        bgClass = "bg-rose-500 border-rose-400";
+                        textColor = "text-white font-bold";
+                        shadowClass = "shadow-[0_0_8px_rgba(244,63,94,0.25)] hover:bg-rose-400";
+                      }
+                    }
+
+                    if (isHighlighted) {
+                      bgClass = "bg-sky-400 border-sky-300 scale-[1.02] ring-1 ring-sky-400/40 z-10";
+                      textColor = "text-gray-950 font-bold";
+                      shadowClass = "shadow-[0_0_10px_rgba(56,189,248,0.45)]";
+                    }
+
+                    // In Year View, completely hide padding days so the grid looks tidy
+                    const opacityClass = cell.isCurrentMonth ? "opacity-100" : "opacity-0 pointer-events-none";
+
+                    return (
+                      <button
+                        key={idx}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleMouseDown(cell.dateStr);
+                        }}
+                        onMouseEnter={() => handleMouseEnter(cell.dateStr)}
+                        className={`aspect-square text-[10px] flex items-center justify-center border rounded-md transition-all duration-150 relative ${bgClass} ${opacityClass} ${shadowClass} ${textColor}`}
+                        title={isBankHoliday ? `${cell.dayNumber}: ${isBankHoliday}` : cell.dayNumber}
+                      >
+                        <span>{cell.dayNumber}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                {/* Tiny badge showing type if hovered/marked */}
-                {hasHoliday && !isHighlighted && bulletColor && (
-                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${bulletColor}`} />
-                )}
-              </button>
+              </GlassCard>
             );
           })}
         </div>
-      </GlassCard>
+      )}
 
       {/* Notice / Policy */}
       <div className="flex gap-2.5 items-start p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-gray-300 text-xs md:text-sm">
         <Info className="h-4 w-4 md:h-5 md:w-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-white">Leave Guidelines:</span> Click and drag to select a range of dates. 
-          Weekends and UK Bank Holidays are automatically skipped. **Holiday Gifts** (Bonus Leave) and **Unpaid Leave** do not deduct from your 22-day Annual Allowance.
+          <span className="font-bold text-white">Leave Guidelines:</span> Click and drag to select ranges in both Month and Year Views. 
+          Weends and UK Bank Holidays are automatically skipped. **Holiday Gifts** (Bonus Leave) and **Unpaid Leave** do not deduct from your 22-day Annual Allowance.
         </div>
       </div>
     </div>
