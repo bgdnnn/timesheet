@@ -146,6 +146,10 @@ export const client = {
       },
       async remove(id) { return fetchJson(`/trainings/${encodeURIComponent(id)}`, { method: "DELETE" }); },
     },
+    Holidays: {
+      ...mkEntity("/holidays"),
+      async removeByDate(dateStr) { return fetchJson(`/holidays/date/${encodeURIComponent(dateStr)}`, { method: "DELETE" }); }
+    },
   },
   earnings: {
     async forWeek(weekStart) {

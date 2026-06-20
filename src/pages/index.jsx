@@ -7,6 +7,7 @@ import Receipts from "./Receipts";
 import Earnings from "./Earnings";
 import PayslipFiles from "./PayslipFiles";
 import Trainings from "./Trainings";
+import Holidays from "./Holidays";
 import AdminPage from "./Admin";
 import LoginPage from "./Login";
 
@@ -36,6 +37,7 @@ function MainApp() {
                 <Route path="/earnings" element={<Earnings />} />
                 <Route path="/payslips" element={<PayslipFiles />} />
                 <Route path="/trainings" element={<Trainings />} />
+                <Route path="/holidays" element={<Holidays />} />
                 <Route path="/admin" element={<AdminPage />} />
             </Route>
         </Routes>

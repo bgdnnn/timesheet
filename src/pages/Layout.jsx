@@ -15,6 +15,7 @@ import {
   Shield,
   FileText,
   Award,
+  Palmtree,
 } from "lucide-react";
 import { User as UserEntity } from "@/api/entities";
 import { AnimatePresence, motion } from "framer-motion";
@@ -29,6 +30,7 @@ const navigationItems = [
   { title: "Earnings", urlKey: "Earnings", icon: DollarSign },
   { title: "Payslips", urlKey: "payslips", icon: FileText },
   { title: "Trainings", urlKey: "trainings", icon: Award },
+  { title: "Holidays", urlKey: "Holidays", icon: Palmtree },
 ];
 
 export default function Layout() {
