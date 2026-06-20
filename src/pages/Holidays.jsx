@@ -76,6 +76,11 @@ export default function HolidaysPage() {
   const [bankHolidays, setBankHolidays] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // Drag selection states
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState("");
+  const [dragEnd, setDragEnd] = useState("");
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [startDateStr, setStartDateStr] = useState("");
@@ -249,24 +254,68 @@ export default function HolidaysPage() {
     }
   };
 
-  // Open modal for marking leave
-  const handleCellClick = (cell) => {
-    const holidayData = holidaysMap.get(cell.dateStr);
-    setStartDateStr(cell.dateStr);
-    setEndDateStr(cell.dateStr);
-    
-    if (holidayData) {
-      setSelectedHoliday(holidayData);
-      setLeaveType(holidayData.type);
-      setLeaveNotes(holidayData.notes || "");
-    } else {
-      setSelectedHoliday(null);
-      setLeaveType("paid");
-      setLeaveNotes("");
-    }
-
-    setIsModalOpen(true);
+  // Click & Drag Range selection handlers
+  const handleMouseDown = (dateStr) => {
+    setIsDragging(true);
+    setDragStart(dateStr);
+    setDragEnd(dateStr);
   };
+
+  const handleMouseEnter = (dateStr) => {
+    if (!isDragging) return;
+    setDragEnd(dateStr);
+  };
+
+  // Determine if a cell is inside the current dragging selection
+  const isInDragRange = useCallback((dateStr) => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    const d = new Date(dateStr);
+    const dStart = new Date(dragStart);
+    const dEnd = new Date(dragEnd);
+    const minD = dStart < dEnd ? dStart : dEnd;
+    const maxD = dStart < dEnd ? dEnd : dStart;
+    return d >= minD && d <= maxD;
+  }, [isDragging, dragStart, dragEnd]);
+
+  // Global mouseup handler to complete range drag selection
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+
+        const dStart = new Date(dragStart);
+        const dEnd = new Date(dragEnd);
+        const startStr = dStart < dEnd ? formatDate(dStart) : formatDate(dEnd);
+        const endStr = dStart < dEnd ? formatDate(dEnd) : formatDate(dStart);
+
+        setStartDateStr(startStr);
+        setEndDateStr(endStr);
+
+        // Prepopulate form if single day edit
+        if (startStr === endStr) {
+          const holidayData = holidaysMap.get(startStr);
+          if (holidayData) {
+            setSelectedHoliday(holidayData);
+            setLeaveType(holidayData.type);
+            setLeaveNotes(holidayData.notes || "");
+          } else {
+            setSelectedHoliday(null);
+            setLeaveType("paid");
+            setLeaveNotes("");
+          }
+        } else {
+          setSelectedHoliday(null);
+          setLeaveType("paid");
+          setLeaveNotes("");
+        }
+
+        setIsModalOpen(true);
+      }
+    };
+
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+  }, [isDragging, dragStart, dragEnd, holidaysMap]);
 
   // Save leave entry (supporting ranges and filtering weekends/bank holidays)
   const handleSaveLeave = async (e) => {
@@ -381,7 +430,7 @@ export default function HolidaysPage() {
   }, []);
 
   return (
-    <div className="text-white">
+    <div className="text-white select-none">
       <AnimatePresence>
         {isModalOpen && (
           <ModalOverlay onClose={() => setIsModalOpen(false)}>
@@ -649,6 +698,7 @@ export default function HolidaysPage() {
           {calendarCells.map((cell, idx) => {
             const hasHoliday = holidaysMap.get(cell.dateStr);
             const isBankHoliday = bankHolidays[cell.dateStr];
+            const isHighlighted = isInDragRange(cell.dateStr);
             
             let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-white";
 
@@ -664,13 +714,22 @@ export default function HolidaysPage() {
               }
             }
 
+            // Apply dragging selection highlight
+            if (isHighlighted) {
+              bgClass = "bg-sky-500/20 hover:bg-sky-500/30 border-sky-500/60 text-sky-100 scale-[1.02] shadow-[0_0_15px_rgba(56,189,248,0.25)] ring-2 ring-sky-400/20 z-10";
+            }
+
             // Muted styles for padding days from adjacent months
             const opacityClass = cell.isCurrentMonth ? "opacity-100" : "opacity-35";
 
             return (
               <button
                 key={idx}
-                onClick={() => handleCellClick(cell)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleMouseDown(cell.dateStr);
+                }}
+                onMouseEnter={() => handleMouseEnter(cell.dateStr)}
                 className={`flex flex-col items-center justify-between p-2 md:p-3 aspect-square border rounded-xl transition-all duration-200 relative group overflow-hidden ${bgClass} ${opacityClass}`}
               >
                 {/* Day number */}
@@ -680,20 +739,25 @@ export default function HolidaysPage() {
 
                 {/* Indicators / Tooltips */}
                 <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
-                  {isBankHoliday && (
+                  {isBankHoliday && !isHighlighted && (
                     <span className="text-[7px] md:text-[9px] font-bold text-yellow-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
                       {isBankHoliday}
                     </span>
                   )}
-                  {hasHoliday && hasHoliday.notes && (
+                  {hasHoliday && hasHoliday.notes && !isHighlighted && (
                     <span className="text-[7px] md:text-[9px] text-gray-400 italic leading-tight block text-left truncate w-full" title={hasHoliday.notes}>
                       "{hasHoliday.notes}"
+                    </span>
+                  )}
+                  {isHighlighted && (
+                    <span className="text-[7px] md:text-[9px] font-bold text-sky-300 leading-tight block text-center truncate w-full">
+                      Selected
                     </span>
                   )}
                 </div>
 
                 {/* Tiny badge showing type if hovered/marked */}
-                {hasHoliday && (
+                {hasHoliday && !isHighlighted && (
                   <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${hasHoliday.type === 'paid' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
                 )}
               </button>
@@ -706,9 +770,8 @@ export default function HolidaysPage() {
       <div className="flex gap-2.5 items-start p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-gray-300 text-xs md:text-sm">
         <Info className="h-4 w-4 md:h-5 md:w-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-white">Leave Guidelines:</span> Your leave allowance is set to {TOTAL_PAID_ALLOWANCE} days. 
-          When you mark a range, weekends (Saturdays and Sundays) and UK bank holidays are automatically skipped from being marked. 
-          "Paid Holiday" deducts from your remaining allowance, whereas "Unpaid Leave" is tracked separately and does not reduce your paid allowance.
+          <span className="font-bold text-white">Leave Guidelines:</span> Click and drag your mouse across dates to select a range! 
+          Weekends and UK Bank Holidays are automatically skipped. On mobile, tap any cell and use the range fields to adjust start/end dates.
         </div>
       </div>
     </div>
