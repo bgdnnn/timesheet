@@ -17,6 +17,7 @@ import {
   X,
   CheckCircle2,
   Trash2,
+  Gift,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -85,7 +86,7 @@ export default function HolidaysPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [startDateStr, setStartDateStr] = useState("");
   const [endDateStr, setEndDateStr] = useState("");
-  const [leaveType, setLeaveType] = useState("paid"); // "paid" or "unpaid"
+  const [leaveType, setLeaveType] = useState("paid"); // "paid", "unpaid", or "gift"
   const [leaveNotes, setLeaveNotes] = useState("");
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -153,12 +154,15 @@ export default function HolidaysPage() {
   const stats = useMemo(() => {
     let paidTaken = 0;
     let unpaidTaken = 0;
+    let giftTaken = 0;
 
     userHolidays.forEach(h => {
       if (h.type === "paid") {
         paidTaken++;
       } else if (h.type === "unpaid") {
         unpaidTaken++;
+      } else if (h.type === "gift") {
+        giftTaken++;
       }
     });
 
@@ -167,6 +171,7 @@ export default function HolidaysPage() {
       paidTaken,
       paidRemaining: Math.max(0, TOTAL_PAID_ALLOWANCE - paidTaken),
       unpaidTaken,
+      giftTaken,
     };
   }, [userHolidays]);
 
@@ -471,7 +476,7 @@ export default function HolidaysPage() {
                       type="date"
                       value={startDateStr}
                       onChange={(e) => setStartDateStr(e.target.value)}
-                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl"
+                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl text-white"
                       required
                     />
                   </div>
@@ -481,7 +486,7 @@ export default function HolidaysPage() {
                       type="date"
                       value={endDateStr}
                       onChange={(e) => setEndDateStr(e.target.value)}
-                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl"
+                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl text-white"
                       required
                     />
                   </div>
@@ -489,30 +494,42 @@ export default function HolidaysPage() {
 
                 <div className="space-y-2">
                   <Label className="text-sm font-bold text-gray-300">Leave Type</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <button
                       type="button"
                       onClick={() => setLeaveType("paid")}
-                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
                         leaveType === "paid"
                           ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-500/5"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
-                      <Palmtree className="h-6 w-6 mb-1.5" />
-                      <span className="font-bold text-xs uppercase tracking-wider">Paid Holiday</span>
+                      <Palmtree className="h-5 w-5 mb-1" />
+                      <span className="font-bold text-[10px] uppercase tracking-wider">Paid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeaveType("gift")}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
+                        leaveType === "gift"
+                          ? "bg-fuchsia-500/15 border-fuchsia-500/50 text-fuchsia-300 shadow-md shadow-fuchsia-500/5"
+                          : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                      }`}
+                    >
+                      <Gift className="h-5 w-5 mb-1" />
+                      <span className="font-bold text-[10px] uppercase tracking-wider">Gift</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setLeaveType("unpaid")}
-                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ${
                         leaveType === "unpaid"
-                          ? "bg-violet-500/15 border-violet-500/50 text-violet-300 shadow-md shadow-violet-500/5"
+                          ? "bg-rose-500/15 border-rose-500/50 text-rose-300 shadow-md shadow-rose-500/5"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
-                      <CalendarX2 className="h-6 w-6 mb-1.5" />
-                      <span className="font-bold text-xs uppercase tracking-wider">Unpaid Leave</span>
+                      <CalendarX2 className="h-5 w-5 mb-1" />
+                      <span className="font-bold text-[10px] uppercase tracking-wider">Unpaid</span>
                     </button>
                   </div>
                 </div>
@@ -582,7 +599,7 @@ export default function HolidaysPage() {
       </div>
 
       {/* Holiday Statistics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
         <GlassCard className="p-4 md:p-6 flex items-center justify-between">
           <div>
             <span className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">
@@ -591,9 +608,9 @@ export default function HolidaysPage() {
             <span className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-sky-200">
               {stats.totalAllowance}
             </span>
-            <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Resets Jan 1st each year</span>
+            <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Resets Jan 1st</span>
           </div>
-          <div className="p-3 rounded-full bg-sky-500/10 text-sky-400">
+          <div className="p-2.5 rounded-full bg-sky-500/10 text-sky-400">
             <Bookmark className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </GlassCard>
@@ -608,7 +625,7 @@ export default function HolidaysPage() {
             </span>
             <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Days deducted</span>
           </div>
-          <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-400">
+          <div className="p-2.5 rounded-full bg-emerald-500/10 text-emerald-400">
             <CheckCircle2 className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </GlassCard>
@@ -623,22 +640,37 @@ export default function HolidaysPage() {
             </span>
             <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Available leave</span>
           </div>
-          <div className="p-3 rounded-full bg-sky-500/10 text-sky-400">
+          <div className="p-2.5 rounded-full bg-sky-500/10 text-sky-400">
             <Palmtree className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </GlassCard>
 
         <GlassCard className="p-4 md:p-6 flex items-center justify-between">
           <div>
-            <span className="text-[10px] md:text-xs font-bold text-violet-400 uppercase tracking-widest block mb-1">
+            <span className="text-[10px] md:text-xs font-bold text-fuchsia-400 uppercase tracking-widest block mb-1">
+              Holiday Gifts
+            </span>
+            <span className="text-2xl md:text-3xl font-black text-fuchsia-400">
+              {stats.giftTaken}
+            </span>
+            <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Bonus leave</span>
+          </div>
+          <div className="p-2.5 rounded-full bg-fuchsia-500/10 text-fuchsia-400">
+            <Gift className="h-5 w-5 md:h-6 md:w-6" />
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4 md:p-6 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] md:text-xs font-bold text-rose-400 uppercase tracking-widest block mb-1">
               Unpaid Taken
             </span>
-            <span className="text-2xl md:text-3xl font-black text-violet-400">
+            <span className="text-2xl md:text-3xl font-black text-rose-400">
               {stats.unpaidTaken}
             </span>
             <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Not deducted</span>
           </div>
-          <div className="p-3 rounded-full bg-violet-500/10 text-violet-400">
+          <div className="p-2.5 rounded-full bg-rose-500/10 text-rose-400">
             <CalendarX2 className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </GlassCard>
@@ -672,15 +704,19 @@ export default function HolidaysPage() {
         {/* Calendar Legend */}
         <div className="flex flex-wrap gap-4 justify-center items-center mb-6 text-xs md:text-sm font-semibold border-b border-white/5 pb-4">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-yellow-500" />
+            <span className="w-3 h-3 rounded bg-yellow-400" />
             <span className="text-gray-300">UK Bank Holiday</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-emerald-500" />
+            <span className="w-3 h-3 rounded bg-emerald-400" />
             <span className="text-gray-300">Paid Holiday</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-violet-500" />
+            <span className="w-3 h-3 rounded bg-fuchsia-400" />
+            <span className="text-gray-300">Holiday Gift</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded bg-rose-400" />
             <span className="text-gray-300">Unpaid Leave</span>
           </div>
         </div>
@@ -703,24 +739,33 @@ export default function HolidaysPage() {
             let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-white";
 
             if (isBankHoliday) {
-              bgClass = "bg-yellow-600/25 hover:bg-yellow-600/40 border-yellow-500/40 text-yellow-200 shadow-lg shadow-yellow-600/5";
+              bgClass = "bg-yellow-500/30 hover:bg-yellow-500/45 border-yellow-400/80 text-yellow-100 shadow-[0_0_15px_rgba(234,179,8,0.15)]";
             }
             
             if (hasHoliday) {
               if (hasHoliday.type === "paid") {
-                bgClass = "bg-emerald-600/25 hover:bg-emerald-600/40 border-emerald-500/40 text-emerald-200 shadow-lg shadow-emerald-600/5";
+                bgClass = "bg-emerald-500/30 hover:bg-emerald-500/45 border-emerald-400/80 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.15)]";
+              } else if (hasHoliday.type === "gift") {
+                bgClass = "bg-fuchsia-500/30 hover:bg-fuchsia-500/45 border-fuchsia-400/80 text-fuchsia-100 shadow-[0_0_15px_rgba(217,70,239,0.15)]";
               } else if (hasHoliday.type === "unpaid") {
-                bgClass = "bg-violet-600/25 hover:bg-violet-600/40 border-violet-500/40 text-violet-200 shadow-lg shadow-violet-600/5";
+                bgClass = "bg-rose-500/30 hover:bg-rose-500/45 border-rose-400/80 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.15)]";
               }
             }
 
             // Apply dragging selection highlight
             if (isHighlighted) {
-              bgClass = "bg-sky-500/20 hover:bg-sky-500/30 border-sky-500/60 text-sky-100 scale-[1.02] shadow-[0_0_15px_rgba(56,189,248,0.25)] ring-2 ring-sky-400/20 z-10";
+              bgClass = "bg-sky-500/35 hover:bg-sky-500/50 border-sky-400 text-sky-100 scale-[1.02] shadow-[0_0_15px_rgba(56,189,248,0.3)] ring-2 ring-sky-400/30 z-10";
             }
 
             // Muted styles for padding days from adjacent months
             const opacityClass = cell.isCurrentMonth ? "opacity-100" : "opacity-35";
+
+            let bulletColor = null;
+            if (hasHoliday) {
+              if (hasHoliday.type === "paid") bulletColor = "bg-emerald-400";
+              else if (hasHoliday.type === "gift") bulletColor = "bg-fuchsia-400";
+              else if (hasHoliday.type === "unpaid") bulletColor = "bg-rose-400";
+            }
 
             return (
               <button
@@ -740,25 +785,25 @@ export default function HolidaysPage() {
                 {/* Indicators / Tooltips */}
                 <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
                   {isBankHoliday && !isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] font-bold text-yellow-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
+                    <span className="text-[7px] md:text-[9px] font-black text-yellow-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
                       {isBankHoliday}
                     </span>
                   )}
                   {hasHoliday && hasHoliday.notes && !isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] text-gray-400 italic leading-tight block text-left truncate w-full" title={hasHoliday.notes}>
+                    <span className="text-[7px] md:text-[9px] text-gray-300 italic leading-tight block text-left truncate w-full" title={hasHoliday.notes}>
                       "{hasHoliday.notes}"
                     </span>
                   )}
                   {isHighlighted && (
-                    <span className="text-[7px] md:text-[9px] font-bold text-sky-300 leading-tight block text-center truncate w-full">
+                    <span className="text-[7px] md:text-[9px] font-bold text-sky-200 leading-tight block text-center truncate w-full">
                       Selected
                     </span>
                   )}
                 </div>
 
                 {/* Tiny badge showing type if hovered/marked */}
-                {hasHoliday && !isHighlighted && (
-                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${hasHoliday.type === 'paid' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
+                {hasHoliday && !isHighlighted && bulletColor && (
+                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${bulletColor}`} />
                 )}
               </button>
             );
@@ -770,8 +815,8 @@ export default function HolidaysPage() {
       <div className="flex gap-2.5 items-start p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-gray-300 text-xs md:text-sm">
         <Info className="h-4 w-4 md:h-5 md:w-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
-          <span className="font-bold text-white">Leave Guidelines:</span> Click and drag your mouse across dates to select a range! 
-          Weekends and UK Bank Holidays are automatically skipped. On mobile, tap any cell and use the range fields to adjust start/end dates.
+          <span className="font-bold text-white">Leave Guidelines:</span> Click and drag to select a range of dates. 
+          Weekends and UK Bank Holidays are automatically skipped. **Holiday Gifts** (Bonus Leave) and **Unpaid Leave** do not deduct from your 22-day Annual Allowance.
         </div>
       </div>
     </div>
