@@ -360,13 +360,13 @@ export default function AdminPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-sm font-semibold ${signupEnabled ? 'text-green-400' : 'text-amber-400'}`}>
+                        <span className={`text-sm font-semibold ${signupEnabled ? 'text-green-400' : 'text-rose-400'}`}>
                             {signupEnabled ? 'ENABLED' : 'DISABLED'}
                         </span>
                         <Button
                             onClick={handleToggleSignup}
                             disabled={isUpdatingSignup}
-                            className={`px-4 py-2 font-bold rounded-xl ${signupEnabled ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}
+                            className={`px-4 py-2 font-bold rounded-xl ${signupEnabled ? 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20' : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}
                         >
                             {isUpdatingSignup ? <RefreshCw className="h-4 w-4 animate-spin" /> : signupEnabled ? 'Disable Signups' : 'Enable Signups'}
                         </Button>

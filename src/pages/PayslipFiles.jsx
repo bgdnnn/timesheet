@@ -5,6 +5,7 @@ import {
   Upload, 
   Trash2, 
   Eye, 
+  EyeOff,
   Calendar, 
   Hash, 
   ArrowUpDown,
@@ -87,6 +88,9 @@ export default function PayslipFiles() {
   const [activeTab, setActiveTab] = useState("payslips");
   const [userProfile, setUserProfile] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [showAppPassword, setShowAppPassword] = useState(false);
+  const [showPdfPassword, setShowPdfPassword] = useState(false);
   
   // Filtering & Sorting State
   const currentTaxYear = useMemo(() => getTaxYearString(new Date()), []);
@@ -114,9 +118,11 @@ export default function PayslipFiles() {
     try {
       const data = await client.fetchJson("/payslip-files");
       setFiles(data);
+      return data;
     } catch (err) {
       console.error("Failed to fetch payslip files:", err);
       toast.error("Failed to load archive");
+      return [];
     } finally {
       setLoading(false);
     }
@@ -140,12 +146,13 @@ export default function PayslipFiles() {
     e.preventDefault();
     setSavingProfile(true);
     const toastId = toast.loading("Saving configuration & verifying mailbox...");
+    const oldFilesCount = files.length;
     try {
       const updated = await client.fetchJson("/me", {
         method: "PUT",
         body: {
           is_auto_upload_enabled: userProfile.is_auto_upload_enabled,
-          auto_upload_provider: userProfile.auto_upload_provider || "",
+          auto_upload_provider: userProfile.auto_upload_provider || "gmail",
           auto_upload_folder: userProfile.auto_upload_folder || "",
           auto_upload_company: userProfile.auto_upload_company || "",
           auto_upload_email: userProfile.auto_upload_email || "",
@@ -154,8 +161,17 @@ export default function PayslipFiles() {
         }
       });
       setUserProfile(updated);
-      toast.success("Settings saved & payslips imported successfully!", { id: toastId });
-      fetchFiles();
+      
+      if (userProfile.is_auto_upload_enabled) {
+        toast.success("Settings saved & mailbox verified!", { id: toastId });
+        const newFiles = await fetchFiles();
+        const addedCount = newFiles.length - oldFilesCount;
+        setImportResult({ count: addedCount, success: true });
+      } else {
+        toast.success("Settings saved successfully!", { id: toastId });
+        await fetchFiles();
+      }
+      
       setActiveTab("payslips");
     } catch (err) {
       console.error("Failed to save auto upload settings:", err);
@@ -828,14 +844,23 @@ export default function PayslipFiles() {
 
                       <div>
                         <Label className="text-xs font-bold text-gray-400 uppercase">Mail App Password</Label>
-                        <Input
-                          type="password"
-                          placeholder="16-character app password"
-                          value={userProfile.auto_upload_app_password || ""}
-                          onChange={(e) => handleProfileFieldChange("auto_upload_app_password", e.target.value)}
-                          className="mt-1.5 bg-white/5 border-white/10"
-                          required
-                        />
+                        <div className="relative mt-1.5">
+                          <Input
+                            type={showAppPassword ? "text" : "password"}
+                            placeholder="16-character app password"
+                            value={userProfile.auto_upload_app_password || ""}
+                            onChange={(e) => handleProfileFieldChange("auto_upload_app_password", e.target.value)}
+                            className="bg-white/5 border-white/10 pr-10"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAppPassword(!showAppPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white focus:outline-none"
+                          >
+                            {showAppPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -844,13 +869,22 @@ export default function PayslipFiles() {
                         <Lock className="h-3.5 w-3.5 text-cyan-400" />
                         PDF Decryption Password (Optional)
                       </Label>
-                      <Input
-                        type="password"
-                        placeholder="Enter password if your payslip PDFs are locked"
-                        value={userProfile.pdf_password || ""}
-                        onChange={(e) => handleProfileFieldChange("pdf_password", e.target.value)}
-                        className="mt-1.5 bg-white/5 border-white/10"
-                      />
+                      <div className="relative mt-1.5">
+                        <Input
+                          type={showPdfPassword ? "text" : "password"}
+                          placeholder="Enter password if your payslip PDFs are locked"
+                          value={userProfile.pdf_password || ""}
+                          onChange={(e) => handleProfileFieldChange("pdf_password", e.target.value)}
+                          className="bg-white/5 border-white/10 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPdfPassword(!showPdfPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white focus:outline-none"
+                        >
+                          {showPdfPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                       <span className="text-[10px] text-gray-500 mt-1 block">Your app password and PDF password are encrypted in the database.</span>
                     </div>
                   </div>
@@ -1081,6 +1115,33 @@ export default function PayslipFiles() {
                   </Button>
                 </div>
               </form>
+            </ModalContent>
+          </ModalOverlay>
+        )}
+      </AnimatePresence>
+
+      {/* Import Success Modal */}
+      <AnimatePresence>
+        {importResult && (
+          <ModalOverlay onClose={() => setImportResult(null)}>
+            <ModalContent onClose={() => setImportResult(null)} className="max-w-md text-center p-8">
+              <div className="flex flex-col items-center">
+                <div className="p-4 rounded-full bg-emerald-500/20 text-emerald-400 mb-4">
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 mb-2">Import Complete</h2>
+                <p className="text-gray-300 text-sm mb-6">
+                  {importResult.count > 0 
+                    ? `Successfully connected to your mailbox and imported ${importResult.count} new statement(s).` 
+                    : "Successfully checked your mailbox, but no new payslip or P60 statements were found."}
+                </p>
+                <Button 
+                  onClick={() => setImportResult(null)}
+                  className="bg-gradient-to-r from-sky-500 to-sky-600 text-white font-semibold py-2.5 px-8 rounded-xl shadow-lg hover:from-sky-400 hover:to-sky-500 transition-all duration-200"
+                >
+                  Close
+                </Button>
+              </div>
             </ModalContent>
           </ModalOverlay>
         )}

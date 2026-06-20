@@ -66,8 +66,8 @@ export default function LoginPage() {
               Sign Up with Google
             </button>
           ) : (
-            <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
-              Signups are currently closed. Please contact the administrator at <a href="mailto:tinauca.bogdan@gmail.com" className="underline hover:text-amber-200">tinauca.bogdan@gmail.com</a>.
+            <div className="mt-2 p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs">
+              Signups are currently closed. Please contact the administrator at <a href="mailto:tinauca.bogdan@gmail.com" className="underline hover:text-sky-200">tinauca.bogdan@gmail.com</a>.
             </div>
           )}
         </div>
