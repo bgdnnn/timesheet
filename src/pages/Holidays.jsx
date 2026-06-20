@@ -44,7 +44,7 @@ const ModalContent = ({ children, onClose, className = "" }) => (
     animate={{ scale: 1, opacity: 1 }}
     exit={{ scale: 0.9, opacity: 0 }}
     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-    className={`relative bg-gray-900/90 backdrop-blur-2xl border border-white/20 text-white rounded-2xl shadow-2xl p-6 md:p-8 w-full ${className}`}
+    className={`relative bg-gray-900/95 backdrop-blur-2xl border border-white/20 text-white rounded-2xl shadow-2xl p-6 md:p-8 w-full ${className}`}
     onClick={(e) => e.stopPropagation()}
   >
     <Button
@@ -78,7 +78,8 @@ export default function HolidaysPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDateStr, setSelectedDateStr] = useState("");
+  const [startDateStr, setStartDateStr] = useState("");
+  const [endDateStr, setEndDateStr] = useState("");
   const [leaveType, setLeaveType] = useState("paid"); // "paid" or "unpaid"
   const [leaveNotes, setLeaveNotes] = useState("");
   const [selectedHoliday, setSelectedHoliday] = useState(null);
@@ -137,7 +138,6 @@ export default function HolidaysPage() {
   const holidaysMap = useMemo(() => {
     const map = new Map();
     userHolidays.forEach(h => {
-      // Normalize date string (some DBs return date + time strings)
       const dateStr = h.date.split("T")[0];
       map.set(dateStr, h);
     });
@@ -252,7 +252,8 @@ export default function HolidaysPage() {
   // Open modal for marking leave
   const handleCellClick = (cell) => {
     const holidayData = holidaysMap.get(cell.dateStr);
-    setSelectedDateStr(cell.dateStr);
+    setStartDateStr(cell.dateStr);
+    setEndDateStr(cell.dateStr);
     
     if (holidayData) {
       setSelectedHoliday(holidayData);
@@ -267,42 +268,106 @@ export default function HolidaysPage() {
     setIsModalOpen(true);
   };
 
-  // Save leave entry
+  // Save leave entry (supporting ranges and filtering weekends/bank holidays)
   const handleSaveLeave = async (e) => {
     e.preventDefault();
+    if (new Date(endDateStr) < new Date(startDateStr)) {
+      toast.error("End date cannot be before start date");
+      return;
+    }
+
     setIsSaving(true);
 
-    try {
-      await Holidays.create({
-        date: selectedDateStr,
-        type: leaveType,
-        notes: leaveNotes || null,
-      });
+    const markedDates = [];
+    const skippedWeekend = [];
+    const skippedBankHol = [];
 
-      toast.success("Leave marked successfully!");
+    let curr = new Date(startDateStr);
+    const end = new Date(endDateStr);
+
+    while (curr <= end) {
+      const dateStr = formatDate(curr);
+      const dayOfWeek = curr.getDay(); // 0 = Sun, 6 = Sat
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isBankHol = !!bankHolidays[dateStr];
+
+      if (isWeekend) {
+        skippedWeekend.push(dateStr);
+      } else if (isBankHol) {
+        skippedBankHol.push(dateStr);
+      } else {
+        markedDates.push(dateStr);
+      }
+
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    if (markedDates.length === 0) {
+      toast.error("No valid weekdays selected (skipped weekends & bank holidays)");
+      setIsSaving(false);
+      return;
+    }
+
+    try {
+      await Promise.all(
+        markedDates.map(dateStr =>
+          Holidays.create({
+            date: dateStr,
+            type: leaveType,
+            notes: leaveNotes || null,
+          })
+        )
+      );
+
+      let msg = `Successfully marked ${markedDates.length} day(s).`;
+      if (skippedWeekend.length > 0 || skippedBankHol.length > 0) {
+        const parts = [];
+        if (skippedWeekend.length > 0) parts.push(`${skippedWeekend.length} weekend day(s)`);
+        if (skippedBankHol.length > 0) parts.push(`${skippedBankHol.length} bank holiday(s)`);
+        msg += ` Skipped ${parts.join(" and ")}.`;
+      }
+      toast.success(msg);
+
       fetchUserAndHolidays();
       setIsModalOpen(false);
     } catch (err) {
-      console.error("Failed to save leave:", err);
-      toast.error("Failed to save leave entry");
+      console.error("Failed to save leave range:", err);
+      toast.error("Failed to save leave entries");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Delete leave entry
+  // Delete leave entry for the selected range
   const handleDeleteLeave = async () => {
-    if (!selectedHoliday) return;
-
-    if (window.confirm("Are you sure you want to clear this leave day?")) {
+    if (window.confirm("Are you sure you want to clear marked leave for this date range?")) {
       setIsSaving(true);
+      
+      const datesToClear = [];
+      let curr = new Date(startDateStr);
+      const end = new Date(endDateStr);
+
+      while (curr <= end) {
+        const dateStr = formatDate(curr);
+        if (holidaysMap.has(dateStr)) {
+          datesToClear.push(dateStr);
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+
+      if (datesToClear.length === 0) {
+        toast.error("No marked leave days found in this range");
+        setIsSaving(false);
+        return;
+      }
+
       try {
-        await Holidays.removeByDate(selectedDateStr);
-        toast.success("Leave cleared successfully!");
+        await Promise.all(datesToClear.map(dateStr => Holidays.removeByDate(dateStr)));
+        toast.success(`Cleared leave for ${datesToClear.length} day(s).`);
         fetchUserAndHolidays();
         setIsModalOpen(false);
       } catch (err) {
-        console.error("Failed to delete leave:", err);
+        console.error("Failed to clear leave range:", err);
         toast.error("Failed to clear leave");
       } finally {
         setIsSaving(false);
@@ -322,29 +387,57 @@ export default function HolidaysPage() {
           <ModalOverlay onClose={() => setIsModalOpen(false)}>
             <ModalContent onClose={() => setIsModalOpen(false)} className="max-w-md">
               <h2 className="text-xl md:text-2xl font-bold mb-1">
-                {selectedHoliday ? "Edit Leave Record" : "Mark Leave Day"}
+                {selectedHoliday && (startDateStr === endDateStr) ? "Edit Leave Record" : "Mark Leave Range"}
               </h2>
               <p className="text-gray-400 text-sm mb-6 flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4 text-sky-400" />
-                {new Date(selectedDateStr).toLocaleDateString("en-GB", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {startDateStr === endDateStr ? (
+                  new Date(startDateStr).toLocaleDateString("en-GB", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                ) : (
+                  <span>Select Range below:</span>
+                )}
               </p>
 
-              {bankHolidays[selectedDateStr] && (
-                <div className="mb-6 p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs flex gap-2 items-start">
+              {startDateStr === endDateStr && bankHolidays[startDateStr] && (
+                <div className="mb-6 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs flex gap-2 items-start">
                   <Info className="h-4 w-4 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-bold">UK Bank Holiday:</span> {bankHolidays[selectedDateStr]}. 
+                    <span className="font-bold">UK Bank Holiday:</span> {bankHolidays[startDateStr]}. 
                     You can still mark leave here, but normally bank holidays are public holidays.
                   </div>
                 </div>
               )}
 
               <form onSubmit={handleSaveLeave} className="space-y-5">
+                {/* Range Selectors */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs font-bold text-gray-400 uppercase">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={startDateStr}
+                      onChange={(e) => setStartDateStr(e.target.value)}
+                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-gray-400 uppercase">End Date</Label>
+                    <Input
+                      type="date"
+                      value={endDateStr}
+                      onChange={(e) => setEndDateStr(e.target.value)}
+                      className="mt-1.5 bg-white/5 border-white/10 hover:border-white/20 focus:border-sky-500/50 transition-all text-sm h-10 rounded-xl"
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-sm font-bold text-gray-300">Leave Type</Label>
                   <div className="grid grid-cols-2 gap-3">
@@ -365,7 +458,7 @@ export default function HolidaysPage() {
                       onClick={() => setLeaveType("unpaid")}
                       className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-200 ${
                         leaveType === "unpaid"
-                          ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/5"
+                          ? "bg-violet-500/15 border-violet-500/50 text-violet-300 shadow-md shadow-violet-500/5"
                           : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
                       }`}
                     >
@@ -386,7 +479,7 @@ export default function HolidaysPage() {
                 </div>
 
                 <div className="flex gap-3 pt-3">
-                  {selectedHoliday && (
+                  {(selectedHoliday || startDateStr !== endDateStr) && (
                     <Button
                       type="button"
                       onClick={handleDeleteLeave}
@@ -394,7 +487,7 @@ export default function HolidaysPage() {
                       className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-4 rounded-xl flex items-center justify-center gap-2 transition-all font-semibold"
                     >
                       <Trash2 className="h-4 w-4" />
-                      <span>Clear</span>
+                      <span>Clear Leave</span>
                     </Button>
                   )}
                   
@@ -427,7 +520,6 @@ export default function HolidaysPage() {
             value={currentYear}
             onChange={(e) => {
               setCurrentYear(parseInt(e.target.value));
-              // Optionally align month
             }}
             className="bg-white/15 border border-white/20 rounded-xl px-4 py-2 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
           >
@@ -489,15 +581,15 @@ export default function HolidaysPage() {
 
         <GlassCard className="p-4 md:p-6 flex items-center justify-between">
           <div>
-            <span className="text-[10px] md:text-xs font-bold text-amber-400 uppercase tracking-widest block mb-1">
+            <span className="text-[10px] md:text-xs font-bold text-violet-400 uppercase tracking-widest block mb-1">
               Unpaid Taken
             </span>
-            <span className="text-2xl md:text-3xl font-black text-amber-400">
+            <span className="text-2xl md:text-3xl font-black text-violet-400">
               {stats.unpaidTaken}
             </span>
             <span className="text-[10px] md:text-xs text-gray-500 font-semibold block mt-1">Not deducted</span>
           </div>
-          <div className="p-3 rounded-full bg-amber-500/10 text-amber-400">
+          <div className="p-3 rounded-full bg-violet-500/10 text-violet-400">
             <CalendarX2 className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </GlassCard>
@@ -531,7 +623,7 @@ export default function HolidaysPage() {
         {/* Calendar Legend */}
         <div className="flex flex-wrap gap-4 justify-center items-center mb-6 text-xs md:text-sm font-semibold border-b border-white/5 pb-4">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-violet-500" />
+            <span className="w-3 h-3 rounded bg-yellow-500" />
             <span className="text-gray-300">UK Bank Holiday</span>
           </div>
           <div className="flex items-center gap-2">
@@ -539,7 +631,7 @@ export default function HolidaysPage() {
             <span className="text-gray-300">Paid Holiday</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-amber-500" />
+            <span className="w-3 h-3 rounded bg-violet-500" />
             <span className="text-gray-300">Unpaid Leave</span>
           </div>
         </div>
@@ -559,17 +651,16 @@ export default function HolidaysPage() {
             const isBankHoliday = bankHolidays[cell.dateStr];
             
             let bgClass = "bg-white/5 hover:bg-white/10 border-white/5 text-white";
-            let statusBadge = null;
 
             if (isBankHoliday) {
-              bgClass = "bg-violet-600/25 hover:bg-violet-600/40 border-violet-500/40 text-violet-200 shadow-lg shadow-violet-600/5";
+              bgClass = "bg-yellow-600/25 hover:bg-yellow-600/40 border-yellow-500/40 text-yellow-200 shadow-lg shadow-yellow-600/5";
             }
             
             if (hasHoliday) {
               if (hasHoliday.type === "paid") {
                 bgClass = "bg-emerald-600/25 hover:bg-emerald-600/40 border-emerald-500/40 text-emerald-200 shadow-lg shadow-emerald-600/5";
               } else if (hasHoliday.type === "unpaid") {
-                bgClass = "bg-amber-600/25 hover:bg-amber-600/40 border-amber-500/40 text-amber-200 shadow-lg shadow-amber-600/5";
+                bgClass = "bg-violet-600/25 hover:bg-violet-600/40 border-violet-500/40 text-violet-200 shadow-lg shadow-violet-600/5";
               }
             }
 
@@ -590,7 +681,7 @@ export default function HolidaysPage() {
                 {/* Indicators / Tooltips */}
                 <div className="w-full flex flex-col gap-0.5 justify-end flex-grow">
                   {isBankHoliday && (
-                    <span className="text-[7px] md:text-[9px] font-bold text-violet-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
+                    <span className="text-[7px] md:text-[9px] font-bold text-yellow-300 leading-tight block text-left truncate w-full" title={isBankHoliday}>
                       {isBankHoliday}
                     </span>
                   )}
@@ -603,7 +694,7 @@ export default function HolidaysPage() {
 
                 {/* Tiny badge showing type if hovered/marked */}
                 {hasHoliday && (
-                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${hasHoliday.type === 'paid' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${hasHoliday.type === 'paid' ? 'bg-emerald-400' : 'bg-violet-400'}`} />
                 )}
               </button>
             );
@@ -616,8 +707,8 @@ export default function HolidaysPage() {
         <Info className="h-4 w-4 md:h-5 md:w-5 text-sky-400 shrink-0 mt-0.5" />
         <div>
           <span className="font-bold text-white">Leave Guidelines:</span> Your leave allowance is set to {TOTAL_PAID_ALLOWANCE} days. 
-          When you mark a day as "Paid Holiday", it automatically deducts from your remaining allowance for that calendar year. 
-          "Unpaid Leave" is tracked separately and does not reduce your paid allowance. Holidays reset on 1 January each year.
+          When you mark a range, weekends (Saturdays and Sundays) and UK bank holidays are automatically skipped from being marked. 
+          "Paid Holiday" deducts from your remaining allowance, whereas "Unpaid Leave" is tracked separately and does not reduce your paid allowance.
         </div>
       </div>
     </div>
