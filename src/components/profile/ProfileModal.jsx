@@ -63,6 +63,12 @@ export default function ProfileModal({ isOpen, onClose, user, onSave }) {
     setIsSaving(true);
     setError("");
 
+    if (isCalculatorEnabled && (!hourlyRate || Number.parseFloat(hourlyRate) <= 0)) {
+      setError("Please enter a positive hourly rate to enable the calculator.");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       await UserApi.updateMyUserData({
         company: company.trim(),

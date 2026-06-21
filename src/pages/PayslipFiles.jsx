@@ -107,6 +107,44 @@ export default function PayslipFiles() {
   const [viewPdfUrl, setViewPdfUrl] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
+  // OCR Inspector State
+  const [inspectingFileId, setInspectingFileId] = useState(null);
+  const [ocrData, setOcrData] = useState(null);
+  const [loadingOcr, setLoadingOcr] = useState(false);
+  const [ocrTab, setOcrTab] = useState("structured");
+
+  const fetchOcrData = React.useCallback(async (fileId) => {
+    setLoadingOcr(true);
+    setOcrData(null);
+    try {
+      const url = fileId === "last"
+        ? `${client.baseUrl}/payslip-files/last/ocr`
+        : `${client.baseUrl}/payslip-files/${fileId}/ocr`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to load OCR data");
+      const json = await response.json();
+      setOcrData(json);
+      if (fileId === "last") {
+        setInspectingFileId(json.id);
+      }
+    } catch (err) {
+      console.error("OCR inspection failed:", err);
+      toast.error("Failed to extract text from payslip PDF");
+    } finally {
+      setLoadingOcr(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "ocrInspector") {
+      if (inspectingFileId) {
+        fetchOcrData(inspectingFileId);
+      } else {
+        fetchOcrData("last");
+      }
+    }
+  }, [activeTab, inspectingFileId, fetchOcrData]);
+
   // Upload Form State
   const [selectedFile, setSelectedFile] = useState(null);
   const [processDate, setProcessDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -526,10 +564,20 @@ export default function PayslipFiles() {
         >
           Automatic Upload
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("ocrInspector");
+          }}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "ocrInspector" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          OCR Inspector
+        </button>
       </div>
 
       {/* Filters & Sorting */}
-      {activeTab !== "autoUpload" && (
+      {activeTab !== "autoUpload" && activeTab !== "ocrInspector" && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <GlassCard className="md:col-span-1 p-4">
               <Label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Filter Year</Label>
@@ -670,8 +718,284 @@ export default function PayslipFiles() {
         )}
       </AnimatePresence>
 
-      {/* Files List / Automatic Upload Tab */}
-      {activeTab !== "autoUpload" ? (
+      {/* Files List / Automatic Upload / OCR Inspector Tab */}
+      {activeTab === "ocrInspector" ? (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <BookOpen className="h-6 w-6 text-cyan-400" />
+                Payslip OCR Inspector
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">
+                View extracted raw text and automatically structured fields from your archived payslip PDFs.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs text-gray-400 font-bold uppercase">Select Payslip:</span>
+              <select
+                value={inspectingFileId || "last"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "last") {
+                    setInspectingFileId("last");
+                  } else {
+                    setInspectingFileId(Number(val));
+                  }
+                }}
+                className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50 min-w-[200px]"
+              >
+                <option value="last" className="bg-slate-900 text-white">Last Uploaded Payslip</option>
+                {files
+                  .filter((f) => f.tax_week !== 0)
+                  .map((f) => (
+                    <option key={f.id} value={f.id} className="bg-slate-900 text-white">
+                      Wk {f.tax_week} ({f.tax_year}) - {f.filename}
+                    </option>
+                  ))}
+              </select>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => fetchOcrData(inspectingFileId || "last")}
+                disabled={loadingOcr}
+                className="text-gray-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 h-9 w-9"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingOcr ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </div>
+
+          {loadingOcr ? (
+            <div className="flex flex-col items-center justify-center py-24 text-gray-400 space-y-4">
+              <Loader2 className="h-10 w-10 text-cyan-400 animate-spin" />
+              <p className="text-sm font-medium">Extracting OCR data from PDF...</p>
+            </div>
+          ) : ocrData ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Sidebar Info Card */}
+              <div className="lg:col-span-4 space-y-6">
+                <GlassCard className="border-white/10 space-y-4">
+                  <div className="border-b border-white/10 pb-3">
+                    <h3 className="font-bold text-base text-cyan-400">File Metadata</h3>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Details stored in the archive index</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase block">Filename</span>
+                      <span className="text-sm font-medium break-all">{ocrData.filename}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase block">Tax Year</span>
+                        <span className="text-sm font-medium flex items-center gap-1.5 mt-0.5">
+                          <Calendar className="h-3.5 w-3.5 text-gray-500" />
+                          {ocrData.tax_year}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase block">Tax Week</span>
+                        <span className="text-sm font-medium flex items-center gap-1.5 mt-0.5">
+                          <Hash className="h-3.5 w-3.5 text-gray-500" />
+                          Week {ocrData.tax_week}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+
+                {/* View/Download Actions */}
+                <GlassCard className="border-white/10 p-4 flex justify-between items-center">
+                  <span className="text-xs text-gray-400 font-medium">Archived PDF Document</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAction({ id: ocrData.id, filename: ocrData.filename }, "view")}
+                      className="text-cyan-400 hover:bg-cyan-500/10 gap-1.5 text-xs"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAction({ id: ocrData.id, filename: ocrData.filename }, "download")}
+                      className="text-emerald-400 hover:bg-emerald-500/10 gap-1.5 text-xs"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download
+                    </Button>
+                  </div>
+                </GlassCard>
+              </div>
+
+              {/* Main Content Pane */}
+              <div className="lg:col-span-8">
+                <GlassCard className="border-white/10 p-0 overflow-hidden flex flex-col h-full min-h-[500px]">
+                  {/* Internal tabs header */}
+                  <div className="flex border-b border-white/10 bg-white/5 p-2 gap-2">
+                    <button
+                      onClick={() => setOcrTab("structured")}
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                        ocrTab === "structured" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Structured Data
+                    </button>
+                    <button
+                      onClick={() => setOcrTab("raw")}
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                        ocrTab === "raw" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Raw Extracted Text
+                    </button>
+                  </div>
+
+                  {/* Inner panels */}
+                  <div className="p-6 flex-1 flex flex-col">
+                    {ocrTab === "structured" ? (
+                      <div className="space-y-6 flex-1">
+                        {/* Highlights Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Net Pay</span>
+                            <span className="text-2xl font-black text-emerald-400 mt-2">
+                              {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.calculated_net_pay || 0)}
+                            </span>
+                          </div>
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Total Gross Pay</span>
+                            <span className="text-xl font-bold text-white mt-2">
+                              {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.total_gross_pay || 0)}
+                            </span>
+                          </div>
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Deductions Total</span>
+                            <span className="text-xl font-bold text-rose-400 mt-2">
+                              {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.deductions_total || 0)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Breakdown tables */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                          {/* Left breakdown: Period Details & Tax Info */}
+                          <div className="space-y-4">
+                            <div className="border-b border-white/5 pb-2">
+                              <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Statement Details</h4>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">Process Date</span>
+                                <span className="font-semibold text-white">{ocrData.parsed_data?.process_date || "-"}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">Tax Code</span>
+                                <span className="font-semibold text-white">{ocrData.parsed_data?.tax_code || "-"}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">Tax Period</span>
+                                <span className="font-semibold text-white">{ocrData.parsed_data?.tax_period ? `Week ${ocrData.parsed_data.tax_period}` : "-"}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">Gross for Tax</span>
+                                <span className="font-semibold text-white">
+                                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.gross_for_tax || 0)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right breakdown: Deductions Breakdown */}
+                          <div className="space-y-4">
+                            <div className="border-b border-white/5 pb-2">
+                              <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider">Deductions Breakdown</h4>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">PAYE Tax</span>
+                                <span className="font-semibold text-rose-300">
+                                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.paye_tax || 0)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">National Insurance</span>
+                                <span className="font-semibold text-rose-300">
+                                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.national_insurance || 0)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5">
+                                <span className="text-gray-400">Pension Contribution</span>
+                                <span className="font-semibold text-rose-300">
+                                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.pension || 0)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-white/5 font-bold">
+                                <span className="text-gray-400">Total Deducted</span>
+                                <span className="text-rose-400">
+                                  {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.deductions_total || 0)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* YTD Table */}
+                        <div className="space-y-3 pt-4">
+                          <div className="border-b border-white/5 pb-2">
+                            <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Year-to-Date (YTD) Summary</h4>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-white/5 border border-white/5 rounded-xl p-3">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase">YTD Gross Pay</span>
+                              <span className="text-base font-bold text-white mt-1 block">
+                                {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.ytd_gross || 0)}
+                              </span>
+                            </div>
+                            <div className="bg-white/5 border border-white/5 rounded-xl p-3">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase">YTD Tax Paid</span>
+                              <span className="text-base font-bold text-rose-300 mt-1 block">
+                                {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.ytd_tax || 0)}
+                              </span>
+                            </div>
+                            <div className="bg-white/5 border border-white/5 rounded-xl p-3">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase">YTD NI Contribution</span>
+                              <span className="text-base font-bold text-white mt-1 block">
+                                {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(ocrData.parsed_data?.ytd_ni || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Raw text block */
+                      <div className="flex-1 flex flex-col">
+                        <pre className="flex-1 bg-black/40 border border-white/10 rounded-xl p-4 text-xs font-mono text-cyan-300 overflow-x-auto whitespace-pre h-[500px] leading-relaxed">
+                          {ocrData.raw_text}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </GlassCard>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center bg-white/5 border border-white/10 rounded-2xl">
+              <FileText className="h-16 w-16 text-white/10 mb-4" />
+              <p className="text-gray-400 font-medium">No OCR data loaded.</p>
+              <Button
+                variant="outline"
+                onClick={() => fetchOcrData("last")}
+                className="mt-4 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white"
+              >
+                Inspect Last Payslip
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : activeTab !== "autoUpload" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence mode="popLayout">
             {filteredAndSortedFiles.map((file) => (
@@ -705,6 +1029,18 @@ export default function PayslipFiles() {
                         className="text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full h-8 w-8"
                       >
                         <Download className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => {
+                          setInspectingFileId(file.id);
+                          setActiveTab("ocrInspector");
+                        }}
+                        title="Inspect OCR Text"
+                        className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
+                      >
+                        <BookOpen className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
