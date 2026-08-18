@@ -1,8 +1,9 @@
 // src/pages/WeekView.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Project, TimeEntry, Hotel, User, Payslips, Receipts, Earnings, Trainings, Notes, Holidays } from "@/api/entities.js";
 import { Button } from "@/components/ui/button.jsx";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw, Award, StickyNote } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, ReceiptText, RefreshCw, Award, StickyNote, Palmtree, FileText } from "lucide-react";
 import { format, startOfWeek as fnsStartOfWeek, addDays, subDays, isSameDay, subMonths } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.jsx";
@@ -36,6 +37,8 @@ export default function WeekView() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotepadModalOpen, setIsNotepadModalOpen] = useState(false);
   const [upcomingHolidays, setUpcomingHolidays] = useState([]);
+  const [trainings, setTrainings] = useState([]);
+  const [payslipFiles, setPayslipFiles] = useState([]);
 
   const inFlightRef = useRef(false);
 
@@ -52,7 +55,7 @@ export default function WeekView() {
       setUser(currentUser);
 
       // 2. Fetch Dependent Data
-      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings, fetchedTrainings, fetchedNotes, fetchedHolidays] = await Promise.all([
+      const [fetchedProjects, fetchedEntries, fetchedHotels, fetchedPayslip, fetchedReceipts, fetchedWeeklyEarnings, fetchedTrainings, fetchedNotes, fetchedHolidays, fetchedPayslipFiles] = await Promise.all([
         Project.filter({ archived: null }),
         TimeEntry.filter({ created_by: currentUser.email }),
         Hotel.filter({ created_by: currentUser.email }, "name"),
@@ -62,6 +65,7 @@ export default function WeekView() {
         Trainings.list(),
         Notes.filter({ from: format(weekStart, "yyyy-MM-dd"), to: format(addDays(weekStart, 6), "yyyy-MM-dd") }),
         Holidays.filter(),
+        Payslips.list(),
       ]);
 
       if (fetchedProjects) {
@@ -86,6 +90,7 @@ export default function WeekView() {
       if (fetchedEntries) setAllEntries(fetchedEntries);
       if (fetchedHotels) setHotels(fetchedHotels);
       setWeekPayslip(fetchedPayslip || null);
+      if (fetchedPayslipFiles) setPayslipFiles(fetchedPayslipFiles);
       setWeekEarnings(fetchedWeeklyEarnings || null);
 
       if (fetchedReceipts) {
@@ -103,11 +108,14 @@ export default function WeekView() {
       }
 
       if (fetchedTrainings) {
+          setTrainings(fetchedTrainings);
           const trainByDay = {};
           const start = weekStart;
           const end = addDays(weekStart, 7);
           fetchedTrainings.forEach((t) => {
+            if (!t.expiry_date || t.expiry_date === "N/A") return;
             const expiryDate = new Date(t.expiry_date);
+            if (isNaN(expiryDate.getTime())) return;
             const reminderDate = subMonths(expiryDate, 1);
             if (reminderDate >= start && reminderDate < end) {
               const key = format(reminderDate, "yyyy-MM-dd");
@@ -173,12 +181,12 @@ export default function WeekView() {
               if (diffDays === 7) {
                   reminders.push({
                       days: 7,
-                      text: `Your holiday starts in 1 week (on ${format(block.start, "dd/MM/yyyy")})`,
+                      text: `Starts in 1 week (on ${format(block.start, "dd/MM/yyyy")})`,
                   });
               } else if (diffDays === 1) {
                   reminders.push({
                       days: 1,
-                      text: `Your holiday starts tomorrow (on ${format(block.start, "dd/MM/yyyy")})`,
+                      text: `Starts tomorrow (on ${format(block.start, "dd/MM/yyyy")})`,
                   });
               }
           });
@@ -292,6 +300,103 @@ export default function WeekView() {
     [currentWeekEntries]
   );
 
+  const trainingStatuses = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return trainings
+      .map((t) => {
+        if (!t.expiry_date || t.expiry_date === "N/A") return null;
+        const expiryDate = new Date(t.expiry_date);
+        if (isNaN(expiryDate.getTime())) return null;
+
+        const diffTime = expiryDate.getTime() - today.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) {
+          // Only show expired notice for 1 day (e.g. diffDays === -1)
+          if (diffDays === -1) {
+            return {
+              title: "Trainings",
+              link: "/trainings",
+              status: `${t.name} EXPIRED (on ${format(expiryDate, "dd/MM/yyyy")})`,
+              level: "error",
+              icon: <Award className="h-4 w-4 text-rose-400" />,
+            };
+          }
+        } else if (diffDays <= 30) {
+          return {
+            title: "Trainings",
+            link: "/trainings",
+            status: diffDays === 0
+              ? `${t.name} EXPIRES TODAY! (on ${format(expiryDate, "dd/MM/yyyy")})`
+              : `${t.name} expires in ${diffDays} day${diffDays !== 1 ? "s" : ""} (on ${format(expiryDate, "dd/MM/yyyy")})`,
+            level: diffDays <= 7 ? "error" : "warning",
+            icon: <Award className={`h-4 w-4 ${diffDays <= 7 ? "text-rose-400" : "text-amber-400"}`} />,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }, [trainings]);
+
+  const payslipStatus = useMemo(() => {
+    if (user && user.employment_type === "employed") {
+      const start = new Date(weekStart);
+      start.setHours(0, 0, 0, 0);
+      const end = addDays(start, 7);
+
+      const matchingPayslip = payslipFiles.find((pf) => {
+        if (!pf.process_date) return false;
+        const pDate = new Date(pf.process_date);
+        pDate.setHours(0, 0, 0, 0);
+        return pDate >= start && pDate < end;
+      });
+
+      if (matchingPayslip) {
+        return {
+          title: "Payslips",
+          link: "/payslips",
+          status: `Received (${matchingPayslip.filename})`,
+          level: "success",
+          icon: <FileText className="h-4 w-4 text-emerald-400" />,
+        };
+      } else {
+        return {
+          title: "Payslips",
+          link: "/payslips",
+          status: "Missing for this week",
+          level: "warning",
+          icon: <FileText className="h-4 w-4 text-amber-400" />,
+        };
+      }
+    }
+    return null;
+  }, [user, weekStart, payslipFiles]);
+
+  const homepageStatuses = useMemo(() => {
+    const statuses = [];
+
+    upcomingHolidays.forEach((h) => {
+      statuses.push({
+        title: "Holidays",
+        link: "/holidays",
+        status: h.text,
+        level: h.days === 1 ? "error" : "warning",
+        icon: <Palmtree className={`h-4 w-4 ${h.days === 1 ? "text-rose-400" : "text-amber-400"}`} />,
+      });
+    });
+
+    trainingStatuses.forEach((ts) => {
+      statuses.push(ts);
+    });
+
+    if (payslipStatus) {
+      statuses.push(payslipStatus);
+    }
+
+    return statuses;
+  }, [upcomingHolidays, trainingStatuses, payslipStatus]);
+
   return (
     <div className="text-white">
       <AnimatePresence>
@@ -366,19 +471,33 @@ export default function WeekView() {
         </div>
       </div>
 
-      {upcomingHolidays.length > 0 && (
+      {homepageStatuses.length > 0 && (
         <div className="mb-6 space-y-2">
-          {upcomingHolidays.map((rem, idx) => (
+          {homepageStatuses.map((item, idx) => (
             <div
               key={idx}
-              className={`flex items-center gap-3 p-4 rounded-xl border backdrop-blur-md text-sm font-semibold ${
-                rem.days === 1
+              className={`flex items-center justify-between p-3 px-4 rounded-xl border backdrop-blur-md text-sm font-semibold transition-all hover:bg-white/5 ${
+                item.level === "error"
                   ? "bg-rose-500/10 border-rose-500/25 text-rose-200"
-                  : "bg-amber-500/10 border-amber-500/25 text-amber-200"
+                  : item.level === "warning"
+                  ? "bg-amber-500/10 border-amber-500/25 text-amber-200"
+                  : item.level === "success"
+                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"
+                  : "bg-blue-500/10 border-blue-500/25 text-blue-200"
               }`}
             >
-              <CalendarDays className={`h-5 w-5 ${rem.days === 1 ? "text-rose-400" : "text-amber-400"}`} />
-              <span className="flex-1">{rem.text}</span>
+              <div className="flex items-center gap-2.5">
+                {item.icon}
+                <Link
+                  to={item.link}
+                  className="hover:underline font-bold text-xs uppercase tracking-wider"
+                >
+                  {item.title}
+                </Link>
+              </div>
+              <div className="text-right text-xs md:text-sm font-medium">
+                {item.status}
+              </div>
             </div>
           ))}
         </div>

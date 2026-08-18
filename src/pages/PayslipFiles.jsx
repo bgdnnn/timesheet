@@ -386,7 +386,7 @@ export default function PayslipFiles() {
     }
 
     if (isMobile && action === "view") {
-        toast.info("Opening payslip...");
+        toast.info("Opening payslip...", { duration: 1000 });
         const url = `${client.baseUrl}/payslip-files/${file.id}/view`;
         window.open(url, "_blank");
         return;
@@ -428,6 +428,7 @@ export default function PayslipFiles() {
     if (viewPdfUrl) window.URL.revokeObjectURL(viewPdfUrl);
     setViewPdfUrl(null);
     setIsViewModalOpen(false);
+    toast.dismiss();
   };
 
   const filteredAndSortedFiles = useMemo(() => {

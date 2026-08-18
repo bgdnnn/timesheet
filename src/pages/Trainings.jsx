@@ -62,6 +62,7 @@ export default function Trainings() {
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploading, setIsUpload] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
   
   // View Modal State
   const [viewFile, setViewFile] = useState(null); // { url, type, name }
@@ -72,11 +73,35 @@ export default function Trainings() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editExpiryDate, setEditExpiryDate] = useState("");
+  const [editNoExpiry, setEditNoExpiry] = useState(false);
 
   // Upload Form State
   const [selectedFile, setSelectedFile] = useState(null);
   const [name, setName] = useState("");
   const [expiryDate, setExpiryDate] = useState(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
+  const [noExpiry, setNoExpiry] = useState(false);
+
+  const activeTrainings = useMemo(() => {
+    return trainings.filter((t) => {
+      const hasExpiry = !!t.expiry_date && t.expiry_date !== "N/A";
+      if (!hasExpiry) return true;
+      const daysLeft = differenceInDays(new Date(t.expiry_date), new Date());
+      return daysLeft > 0;
+    });
+  }, [trainings]);
+
+  const archivedTrainings = useMemo(() => {
+    return trainings.filter((t) => {
+      const hasExpiry = !!t.expiry_date && t.expiry_date !== "N/A";
+      if (!hasExpiry) return false;
+      const daysLeft = differenceInDays(new Date(t.expiry_date), new Date());
+      return daysLeft <= 0;
+    });
+  }, [trainings]);
+
+  const displayedTrainings = useMemo(() => {
+    return activeTab === "active" ? activeTrainings : archivedTrainings;
+  }, [activeTab, activeTrainings, archivedTrainings]);
 
   async function fetchTrainings() {
     setLoading(true);
@@ -97,7 +122,7 @@ export default function Trainings() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!selectedFile || !name || !expiryDate) {
+    if (!selectedFile || !name || (!noExpiry && !expiryDate)) {
         toast.error("Please fill all fields");
         return;
     }
@@ -107,12 +132,13 @@ export default function Trainings() {
       await TrainingsApi.upload({
         file: selectedFile,
         name: name,
-        expiry_date: expiryDate
+        expiry_date: noExpiry ? "N/A" : expiryDate
       });
       toast.success("Certificate saved successfully!");
       setIsUploadModalOpen(false);
       setSelectedFile(null);
       setName("");
+      setNoExpiry(false);
       fetchTrainings();
     } catch (err) {
       console.error("Upload failed:", err);
@@ -124,13 +150,13 @@ export default function Trainings() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    if (!editingTraining || !editName || !editExpiryDate) return;
+    if (!editingTraining || !editName || (!editNoExpiry && !editExpiryDate)) return;
 
     setIsUpload(true);
     try {
       await TrainingsApi.update(editingTraining.id, {
         name: editName,
-        expiry_date: editExpiryDate
+        expiry_date: editNoExpiry ? null : editExpiryDate
       });
       toast.success("Certificate updated successfully!");
       setIsEditModalOpen(false);
@@ -147,7 +173,9 @@ export default function Trainings() {
   const openEditModal = (t) => {
     setEditingTraining(t);
     setEditName(t.name);
-    setEditExpiryDate(t.expiry_date);
+    const hasExp = !!t.expiry_date && t.expiry_date !== "N/A";
+    setEditExpiryDate(hasExp ? t.expiry_date : "");
+    setEditNoExpiry(!hasExp);
     setIsEditModalOpen(true);
   };
 
@@ -243,13 +271,44 @@ export default function Trainings() {
         </Button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-white/10 mb-2">
+        <button
+          onClick={() => setActiveTab("active")}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${
+            activeTab === "active" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          <span>Active Certificates</span>
+          <span className={`px-2 py-0.5 text-xs rounded-full ${
+            activeTab === "active" ? "bg-cyan-500/20 text-cyan-400" : "bg-white/5 text-gray-400"
+          }`}>
+            {activeTrainings.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("archived")}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${
+            activeTab === "archived" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          <span>Archive (Expired)</span>
+          <span className={`px-2 py-0.5 text-xs rounded-full ${
+            activeTab === "archived" ? "bg-red-500/20 text-red-400" : "bg-white/5 text-gray-400"
+          }`}>
+            {archivedTrainings.length}
+          </span>
+        </button>
+      </div>
+
       {/* Grid List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode="popLayout">
-          {trainings.map((t) => {
-            const daysLeft = differenceInDays(new Date(t.expiry_date), new Date());
-            const isExpiringSoon = daysLeft <= 30 && daysLeft > 0;
-            const isExpired = daysLeft <= 0;
+          {displayedTrainings.map((t) => {
+            const hasExpiry = !!t.expiry_date && t.expiry_date !== "N/A";
+            const daysLeft = hasExpiry ? differenceInDays(new Date(t.expiry_date), new Date()) : null;
+            const isExpiringSoon = hasExpiry && daysLeft <= 30 && daysLeft > 0;
+            const isExpired = hasExpiry && daysLeft <= 0;
 
             return (
               <motion.div
@@ -284,10 +343,15 @@ export default function Trainings() {
                     <h3 className="font-bold text-lg mb-1 line-clamp-1">{t.name}</h3>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
                       <Calendar className="h-3 w-3" />
-                      <span>Expires: {format(new Date(t.expiry_date), "dd MMM yyyy")}</span>
+                      <span>Expires: {hasExpiry ? format(new Date(t.expiry_date), "dd MMM yyyy") : "N/A"}</span>
                     </div>
 
-                    {isExpired ? (
+                    {!hasExpiry ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold w-fit">
+                            <CheckCircle2 className="h-3 w-3" />
+                            VALID (Does not expire)
+                        </div>
+                    ) : isExpired ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold w-fit">
                             <AlertTriangle className="h-3 w-3" />
                             EXPIRED
@@ -310,13 +374,19 @@ export default function Trainings() {
           })}
         </AnimatePresence>
 
-        {trainings.length === 0 && !loading && (
+        {displayedTrainings.length === 0 && !loading && (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
             <Award className="h-16 w-16 text-white/10 mb-4" />
-            <p className="text-gray-400 font-medium">No training certificates added yet.</p>
-            <Button variant="link" onClick={() => setIsUploadModalOpen(true)} className="text-sky-400 mt-2">
-              Upload your first certificate
-            </Button>
+            <p className="text-gray-400 font-medium">
+              {activeTab === "active" 
+                ? "No active training certificates found." 
+                : "No expired training certificates in the archive."}
+            </p>
+            {activeTab === "active" && (
+              <Button variant="link" onClick={() => setIsUploadModalOpen(true)} className="text-sky-400 mt-2">
+                Upload your first certificate
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -384,14 +454,25 @@ export default function Trainings() {
                 </div>
 
                 <div>
-                  <Label>Expiry Date</Label>
+                  <Label className={noExpiry ? "text-gray-500" : ""}>Expiry Date</Label>
                   <Input 
                     type="date" 
-                    value={expiryDate}
+                    value={noExpiry ? "" : expiryDate}
                     onChange={(e) => setExpiryDate(e.target.value)}
-                    className="mt-1.5 bg-white/5 border-white/10"
-                    required
+                    disabled={noExpiry}
+                    className="mt-1.5 bg-white/5 border-white/10 disabled:opacity-50"
+                    required={!noExpiry}
                   />
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="checkbox"
+                      id="noExpiry"
+                      checked={noExpiry}
+                      onChange={(e) => setNoExpiry(e.target.checked)}
+                      className="rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-500 h-4 w-4"
+                    />
+                    <label htmlFor="noExpiry" className="text-xs text-gray-300 cursor-pointer select-none">No Expiry Date (N/A)</label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">
@@ -433,14 +514,25 @@ export default function Trainings() {
                 </div>
 
                 <div>
-                  <Label>Expiry Date</Label>
+                  <Label className={editNoExpiry ? "text-gray-500" : ""}>Expiry Date</Label>
                   <Input 
                     type="date" 
-                    value={editExpiryDate}
+                    value={editNoExpiry ? "" : editExpiryDate}
                     onChange={(e) => setEditExpiryDate(e.target.value)}
-                    className="mt-1.5 bg-white/5 border-white/10"
-                    required
+                    disabled={editNoExpiry}
+                    className="mt-1.5 bg-white/5 border-white/10 disabled:opacity-50"
+                    required={!editNoExpiry}
                   />
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="checkbox"
+                      id="editNoExpiry"
+                      checked={editNoExpiry}
+                      onChange={(e) => setEditNoExpiry(e.target.checked)}
+                      className="rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-500 h-4 w-4"
+                    />
+                    <label htmlFor="editNoExpiry" className="text-xs text-gray-300 cursor-pointer select-none">No Expiry Date (N/A)</label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4">

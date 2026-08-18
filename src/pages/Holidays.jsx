@@ -274,6 +274,33 @@ export default function HolidaysPage() {
     setDragEnd(dateStr);
   };
 
+  const handleTouchStart = (dateStr) => {
+    setIsDragging(true);
+    setDragStart(dateStr);
+    setDragEnd(dateStr);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+
+    // Prevent default scroll behavior only when dragging over calendar
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return;
+
+    const cellElement = element.closest("[data-date]");
+    if (cellElement) {
+      const dateStr = cellElement.getAttribute("data-date");
+      if (dateStr && dateStr !== dragEnd) {
+        setDragEnd(dateStr);
+      }
+    }
+  };
+
   // Determine if a cell is inside the current dragging selection
   const isInDragRange = useCallback((dateStr) => {
     if (!isDragging || !dragStart || !dragEnd) return false;
@@ -285,9 +312,9 @@ export default function HolidaysPage() {
     return d >= minD && d <= maxD;
   }, [isDragging, dragStart, dragEnd]);
 
-  // Global mouseup handler to complete range drag selection
+  // Global mouseup/touchend/touchcancel handler to complete range drag selection
   useEffect(() => {
-    const handleGlobalMouseUp = () => {
+    const handleGlobalEnd = () => {
       if (isDragging) {
         setIsDragging(false);
 
@@ -321,8 +348,14 @@ export default function HolidaysPage() {
       }
     };
 
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+    window.addEventListener("mouseup", handleGlobalEnd);
+    window.addEventListener("touchend", handleGlobalEnd);
+    window.addEventListener("touchcancel", handleGlobalEnd);
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalEnd);
+      window.removeEventListener("touchend", handleGlobalEnd);
+      window.removeEventListener("touchcancel", handleGlobalEnd);
+    };
   }, [isDragging, dragStart, dragEnd, holidaysMap]);
 
   // Save leave entry (supporting ranges and filtering weekends/bank holidays)
@@ -816,6 +849,9 @@ export default function HolidaysPage() {
                     handleMouseDown(cell.dateStr);
                   }}
                   onMouseEnter={() => handleMouseEnter(cell.dateStr)}
+                  onTouchStart={() => handleTouchStart(cell.dateStr)}
+                  onTouchMove={handleTouchMove}
+                  data-date={cell.dateStr}
                   className={`flex flex-col items-center justify-between p-2 md:p-3 aspect-square border rounded-xl transition-all duration-200 relative group overflow-hidden ${bgClass} ${opacityClass} ${shadowClass}`}
                 >
                   {/* Day number */}
@@ -919,6 +955,9 @@ export default function HolidaysPage() {
                           handleMouseDown(cell.dateStr);
                         }}
                         onMouseEnter={() => handleMouseEnter(cell.dateStr)}
+                        onTouchStart={() => handleTouchStart(cell.dateStr)}
+                        onTouchMove={handleTouchMove}
+                        data-date={cell.dateStr}
                         className={`aspect-square text-[10px] flex items-center justify-center border rounded-md transition-all duration-150 relative ${bgClass} ${opacityClass} ${shadowClass} ${textColor}`}
                         title={isBankHoliday ? `${cell.dayNumber}: ${isBankHoliday}` : cell.dayNumber}
                       >

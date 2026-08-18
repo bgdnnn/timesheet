@@ -13,6 +13,7 @@ export const Payslips  = {
   uploadPayslip,
   manualEntry,
   forWeek: getPayslipForWeek,
+  list: () => client.fetchJson("/payslip-files"),
 };
 export const Earnings = {
     recalculate: () => client.earnings.recalculate(),
