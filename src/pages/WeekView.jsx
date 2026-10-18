@@ -114,13 +114,33 @@ export default function WeekView() {
           const end = addDays(weekStart, 7);
           fetchedTrainings.forEach((t) => {
             if (!t.expiry_date || t.expiry_date === "N/A") return;
-            const expiryDate = new Date(t.expiry_date);
+            const parts = String(t.expiry_date).split("-");
+            if (parts.length < 3) return;
+            const expiryDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            expiryDate.setHours(0, 0, 0, 0);
             if (isNaN(expiryDate.getTime())) return;
-            const reminderDate = subMonths(expiryDate, 1);
-            if (reminderDate >= start && reminderDate < end) {
-              const key = format(reminderDate, "yyyy-MM-dd");
+
+            const reminder1Month = subMonths(expiryDate, 1);
+            reminder1Month.setHours(0, 0, 0, 0);
+            const reminder2Weeks = subDays(expiryDate, 14);
+            reminder2Weeks.setHours(0, 0, 0, 0);
+            const reminder1Day = subDays(expiryDate, 1);
+            reminder1Day.setHours(0, 0, 0, 0);
+
+            if (reminder1Month >= start && reminder1Month < end) {
+              const key = format(reminder1Month, "yyyy-MM-dd");
               if (!trainByDay[key]) trainByDay[key] = [];
               trainByDay[key].push(`${t.name} (Expires in 1 month)`);
+            }
+            if (reminder2Weeks >= start && reminder2Weeks < end) {
+              const key = format(reminder2Weeks, "yyyy-MM-dd");
+              if (!trainByDay[key]) trainByDay[key] = [];
+              trainByDay[key].push(`${t.name} (Expires in 2 weeks)`);
+            }
+            if (reminder1Day >= start && reminder1Day < end) {
+              const key = format(reminder1Day, "yyyy-MM-dd");
+              if (!trainByDay[key]) trainByDay[key] = [];
+              trainByDay[key].push(`${t.name} (Expires tomorrow)`);
             }
             if (expiryDate >= start && expiryDate < end) {
               const key = format(expiryDate, "yyyy-MM-dd");
@@ -306,34 +326,63 @@ export default function WeekView() {
     return trainings
       .map((t) => {
         if (!t.expiry_date || t.expiry_date === "N/A") return null;
-        const expiryDate = new Date(t.expiry_date);
+        const parts = String(t.expiry_date).split("-");
+        if (parts.length < 3) return null;
+        const expiryDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        expiryDate.setHours(0, 0, 0, 0);
         if (isNaN(expiryDate.getTime())) return null;
+
+        const reminder1Month = subMonths(expiryDate, 1);
+        reminder1Month.setHours(0, 0, 0, 0);
 
         const diffTime = expiryDate.getTime() - today.getTime();
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays < 0) {
-          // Only show expired notice for 1 day (e.g. diffDays === -1)
-          if (diffDays === -1) {
-            return {
-              title: "Trainings",
-              link: "/trainings",
-              status: `${t.name} EXPIRED (on ${format(expiryDate, "dd/MM/yyyy")})`,
-              level: "error",
-              icon: <Award className="h-4 w-4 text-rose-400" />,
-            };
-          }
-        } else if (diffDays <= 30) {
+        const is1MonthBefore = isSameDay(today, reminder1Month);
+        const is2WeeksBefore = diffDays === 14;
+        const is1DayBefore = diffDays === 1;
+        const isToday = diffDays === 0;
+
+        if (isToday) {
           return {
             title: "Trainings",
             link: "/trainings",
-            status: diffDays === 0
-              ? `${t.name} EXPIRES TODAY! (on ${format(expiryDate, "dd/MM/yyyy")})`
-              : `${t.name} expires in ${diffDays} day${diffDays !== 1 ? "s" : ""} (on ${format(expiryDate, "dd/MM/yyyy")})`,
-            level: diffDays <= 7 ? "error" : "warning",
-            icon: <Award className={`h-4 w-4 ${diffDays <= 7 ? "text-rose-400" : "text-amber-400"}`} />,
+            status: `${t.name} EXPIRES TODAY! (on ${format(expiryDate, "dd/MM/yyyy")})`,
+            level: "error",
+            icon: <Award className="h-4 w-4 text-rose-400" />,
           };
         }
+
+        if (is1DayBefore) {
+          return {
+            title: "Trainings",
+            link: "/trainings",
+            status: `${t.name} expires tomorrow! (on ${format(expiryDate, "dd/MM/yyyy")})`,
+            level: "error",
+            icon: <Award className="h-4 w-4 text-rose-400" />,
+          };
+        }
+
+        if (is2WeeksBefore) {
+          return {
+            title: "Trainings",
+            link: "/trainings",
+            status: `${t.name} expires in 2 weeks (on ${format(expiryDate, "dd/MM/yyyy")})`,
+            level: "warning",
+            icon: <Award className="h-4 w-4 text-amber-400" />,
+          };
+        }
+
+        if (is1MonthBefore) {
+          return {
+            title: "Trainings",
+            link: "/trainings",
+            status: `${t.name} expires in 1 month (on ${format(expiryDate, "dd/MM/yyyy")})`,
+            level: "warning",
+            icon: <Award className="h-4 w-4 text-amber-400" />,
+          };
+        }
+
         return null;
       })
       .filter(Boolean);

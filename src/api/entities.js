@@ -9,6 +9,7 @@ export const Notes     = client.entities.Notes;
 export const Receipts  = client.entities.Receipts;
 export const Trainings = client.entities.Trainings;
 export const Holidays  = client.entities.Holidays;
+export const ConstructionDetails = client.entities.ConstructionDetails;
 export const Payslips  = {
   uploadPayslip,
   manualEntry,

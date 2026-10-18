@@ -1,6 +1,13 @@
 // src/api/timesheetClient.js
+import { clearStoredSession, saveReturnTo, setStoredSession } from "@/utils/auth";
 
 const BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+
+let authNavigateHandler = null;
+
+export function setAuthNavigateHandler(handler) {
+  authNavigateHandler = handler;
+}
 
 function getAccessToken() {
   const token = localStorage.getItem("ts_token");
@@ -32,16 +39,22 @@ async function fetchJson(path, { method = "GET", headers = {}, body, signal } = 
 
     if (!resp.ok) {
       if (resp.status === 401) {
-          console.warn("Unauthorized: Session likely expired. Redirecting to login.");
-          // Clear any local tokens
-          localStorage.removeItem("ts_token");
-          // Force redirect to login page if not already there
-          if (!window.location.pathname.includes("/login")) {
-              window.location.assign("/login");
+        console.warn("Unauthorized: Session likely expired. Redirecting to login.");
+        saveReturnTo(window.location.pathname + window.location.search);
+        clearStoredSession();
+        window.dispatchEvent(new CustomEvent("timesheet:session-expired", { detail: { path: window.location.pathname } }));
+        if (!window.location.pathname.startsWith("/login")) {
+          if (authNavigateHandler) {
+            authNavigateHandler("/login");
+          } else {
+            window.location.replace("/login");
           }
+        }
       }
       const text = await resp.text();
-      throw new Error(`HTTP ${resp.status}: ${text}`);
+      const err = new Error(`HTTP ${resp.status}: ${text}`);
+      err.status = resp.status;
+      throw err;
     }
 
     const ct = resp.headers.get("content-type") || "";
@@ -55,10 +68,18 @@ async function fetchJson(path, { method = "GET", headers = {}, body, signal } = 
 
 const auth = {
   async me() {
-    return fetchJson("/me");
+    const data = await fetchJson("/me");
+    if (data && typeof data === "object") {
+      setStoredSession(data);
+    }
+    return data;
   },
   async updateMyUserData(payload) {
-    return fetchJson("/me", { method: "PUT", body: payload });
+    const data = await fetchJson("/me", { method: "PUT", body: payload });
+    if (data && typeof data === "object") {
+      setStoredSession(data);
+    }
+    return data;
   },
   loginWithRedirect(returnTo, action = "login") {
     const rt = encodeURIComponent(returnTo || window.location.href);
@@ -66,8 +87,12 @@ const auth = {
   },
   async logout() {
     try { await fetchJson("/auth/logout", { method: "POST" }); } catch {}
-    localStorage.clear();
-    window.location.assign("/login");
+    clearStoredSession();
+    if (authNavigateHandler) {
+      authNavigateHandler("/login");
+    } else {
+      window.location.replace("/login");
+    }
   },
 };
 
@@ -127,7 +152,10 @@ export const client = {
         if (notes != null) fd.append("notes", notes);
         return fetchJson("/receipts/upload", { method: "POST", body: fd });
       },
-      fileUrl(id) { return `${BASE}/receipts/${encodeURIComponent(id)}/file`; },
+      fileUrl(id) {
+        const token = getAccessToken();
+        return `${BASE}/receipts/${encodeURIComponent(id)}/file${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      },
       async remove(id) { return mkEntity("/receipts").remove(id); },
     },
     Trainings: {
@@ -139,8 +167,16 @@ export const client = {
         fd.append("expiry_date", expiry_date);
         return fetchJson("/trainings/upload", { method: "POST", body: fd });
       },
-      fileUrl(id) { return `${BASE}/trainings/${encodeURIComponent(id)}/file`; },
-      downloadUrl(id) { return `${BASE}/trainings/${encodeURIComponent(id)}/download`; },
+      fileUrl(id) {
+        const token = getAccessToken();
+        const t = Date.now();
+        return `${BASE}/trainings/${encodeURIComponent(id)}/file?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      },
+      downloadUrl(id) {
+        const token = getAccessToken();
+        const t = Date.now();
+        return `${BASE}/trainings/${encodeURIComponent(id)}/download?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      },
       async update(id, data) {
         return fetchJson(`/trainings/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
       },
@@ -149,6 +185,44 @@ export const client = {
     Holidays: {
       ...mkEntity("/holidays"),
       async removeByDate(dateStr) { return fetchJson(`/holidays/date/${encodeURIComponent(dateStr)}`, { method: "DELETE" }); }
+    },
+    ConstructionDetails: {
+      async list(query = {}, sort = "default") {
+        const params = new URLSearchParams();
+        Object.entries(query).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== "") params.append(k, String(v));
+        });
+        if (sort) params.set("sort_by", sort);
+        const qs = params.toString() ? `?${params.toString()}` : "";
+        return fetchJson(`/construction-details${qs}`);
+      },
+      async upload({ file, name, manufacturer, details }) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("name", name);
+        fd.append("manufacturer", manufacturer);
+        if (details != null) fd.append("details", details);
+        return fetchJson("/construction-details/upload", { method: "POST", body: fd });
+      },
+      async update(id, data) {
+        return fetchJson(`/construction-details/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
+      },
+      async remove(id) {
+        return fetchJson(`/construction-details/${encodeURIComponent(id)}`, { method: "DELETE" });
+      },
+      async getManufacturers() {
+        return fetchJson("/construction-details/manufacturers");
+      },
+      fileUrl(id) {
+        const token = getAccessToken();
+        const t = Date.now();
+        return `${BASE}/construction-details/${encodeURIComponent(id)}/view?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      },
+      downloadUrl(id) {
+        const token = getAccessToken();
+        const t = Date.now();
+        return `${BASE}/construction-details/${encodeURIComponent(id)}/download?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      },
     },
   },
   earnings: {

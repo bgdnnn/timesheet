@@ -4,7 +4,6 @@ import {
   Award, 
   Upload, 
   Trash2, 
-  Eye, 
   Calendar, 
   AlertTriangle,
   RefreshCw,
@@ -22,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { client } from "@/api/timesheetClient";
 import { AnimatePresence, motion } from "framer-motion";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Trainings as TrainingsApi } from "@/api/entities";
 import { toast } from "sonner";
 
@@ -57,16 +55,11 @@ const ModalContent = ({ children, onClose, className = "" }) => (
 );
 
 export default function Trainings() {
-  const isMobile = useIsMobile();
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploading, setIsUpload] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
-  
-  // View Modal State
-  const [viewFile, setViewFile] = useState(null); // { url, type, name }
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // Edit Modal State
   const [editingTraining, setEditingTraining] = useState(null);
@@ -194,64 +187,17 @@ export default function Trainings() {
   const handleAction = async (training, action = "view") => {
     // 1. Confirmation for download
     if (action === "download") {
-        if (!window.confirm(`Do you want to download "${training.name}"?`)) return;
+      if (!window.confirm(`Do you want to download "${training.name}"?`)) return;
+      toast.info("Starting download...");
+      const url = TrainingsApi.downloadUrl(training.id);
+      window.open(url, "_blank");
+      setTimeout(() => toast.success("Download requested"), 1000);
+      return;
     }
 
-    if (isMobile) {
-        toast.info(action === "view" ? "Opening certificate..." : "Starting download...");
-        const url = action === "view" ? TrainingsApi.fileUrl(training.id) : TrainingsApi.downloadUrl(training.id);
-        window.open(url, "_blank");
-        if (action === "download") {
-            setTimeout(() => toast.success("Download requested"), 1000);
-        }
-        return;
-    }
-
-    const toastId = toast.loading(action === "view" ? "Loading viewer..." : "Preparing file for download...");
-
-    try {
-      const urlToFetch = action === "view" ? TrainingsApi.fileUrl(training.id) : TrainingsApi.downloadUrl(training.id);
-      const response = await fetch(urlToFetch, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Action failed");
-      
-      const blob = await response.blob();
-      
-      // Determine file type
-      let fileType = training.mime_type;
-      if (fileType === "application/pdf" || training.filename.toLowerCase().endsWith(".pdf")) {
-          fileType = "application/pdf";
-      }
-
-      // Create blob with explicit type
-      const pdfBlob = new Blob([blob], { type: fileType });
-      const url = window.URL.createObjectURL(pdfBlob);
-      
-      if (action === "download") {
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', training.filename);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          toast.success("File ready! Download started.", { id: toastId });
-          setTimeout(() => window.URL.revokeObjectURL(url), 100);
-      } else {
-          setViewFile({ url, type: fileType, name: training.name });
-          setIsViewModalOpen(true);
-          toast.dismiss(toastId);
-      }
-    } catch (err) {
-      console.error(`${action} failed:`, err);
-      toast.error("Action failed. Please try again.", { id: toastId });
-    }
-  };
-
-  const closeViewModal = () => {
-    if (viewFile?.url) window.URL.revokeObjectURL(viewFile.url);
-    setViewFile(null);
-    setIsViewModalOpen(false);
+    toast.info("Opening certificate...", { duration: 1500 });
+    const url = TrainingsApi.fileUrl(training.id);
+    window.open(url, "_blank");
   };
 
   return (
@@ -320,12 +266,16 @@ export default function Trainings() {
               >
                 <GlassCard className={`group border-white/10 hover:border-cyan-500/30 transition-all duration-300 h-full flex flex-col ${isExpired ? 'border-red-500/30' : isExpiringSoon ? 'border-amber-500/30' : ''}`}>
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl bg-white/5 border border-white/10 group-hover:bg-cyan-500/10 transition-all ${isExpired ? 'text-red-400' : isExpiringSoon ? 'text-amber-400' : 'text-cyan-400'}`}>
+                    <div 
+                      onClick={() => handleAction(t, "view")}
+                      title="Open Certificate"
+                      className={`p-3 rounded-xl bg-white/5 border border-white/10 group-hover:bg-cyan-500/10 cursor-pointer transition-all ${isExpired ? 'text-red-400' : isExpiringSoon ? 'text-amber-400' : 'text-cyan-400'}`}
+                    >
                       <Award className="h-6 w-6" />
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleAction(t, "view")} title={isMobile ? "Open" : "View"} className="text-gray-400 hover:text-cyan-400 rounded-full h-8 w-8">
-                        {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Button variant="ghost" size="icon" onClick={() => handleAction(t, "view")} title="Open in new tab" className="text-gray-400 hover:text-cyan-400 rounded-full h-8 w-8">
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEditModal(t)} title="Edit" className="text-gray-400 hover:text-white rounded-full h-8 w-8">
                         <Edit className="h-4 w-4" />
@@ -340,7 +290,13 @@ export default function Trainings() {
                   </div>
                   
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{t.name}</h3>
+                    <h3 
+                      onClick={() => handleAction(t, "view")}
+                      title="Open Certificate"
+                      className="font-bold text-lg mb-1 line-clamp-1 cursor-pointer hover:text-cyan-400 transition-colors"
+                    >
+                      {t.name}
+                    </h3>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
                       <Calendar className="h-3 w-3" />
                       <span>Expires: {hasExpiry ? format(new Date(t.expiry_date), "dd MMM yyyy") : "N/A"}</span>
@@ -390,33 +346,6 @@ export default function Trainings() {
           </div>
         )}
       </div>
-
-      {/* View Modal */}
-      <AnimatePresence>
-        {isViewModalOpen && (
-          <ModalOverlay onClose={closeViewModal}>
-            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-white/10 border-white/10">
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
-
-                <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-cyan-400" />
-                  <span className="font-bold text-sm md:text-base">{viewFile?.name}</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={closeViewModal} className="text-gray-400 hover:text-white rounded-full">
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-              <div className="flex-1 w-full bg-black flex items-center justify-center overflow-auto p-4">
-                {viewFile?.type?.startsWith('image/') ? (
-                    <img src={viewFile.url} className="max-w-full max-h-full object-contain shadow-2xl" alt="Certificate" />
-                ) : (
-                    <iframe src={viewFile?.url} className="w-full h-full border-none bg-white" title="PDF Viewer" />
-                )}
-              </div>
-            </ModalContent>
-          </ModalOverlay>
-        )}
-      </AnimatePresence>
 
       {/* Add Modal */}
       <AnimatePresence>

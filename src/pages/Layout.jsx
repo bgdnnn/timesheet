@@ -16,8 +16,9 @@ import {
   FileText,
   Award,
   Palmtree,
+  HardHat,
 } from "lucide-react";
-import { User as UserEntity } from "@/api/entities";
+import { useAuth } from "@/context/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 import ProfileModal from "../components/profile/ProfileModal";
 
@@ -30,36 +31,15 @@ const navigationItems = [
   { title: "Earnings", urlKey: "Earnings", icon: DollarSign },
   { title: "Payslips", urlKey: "payslips", icon: FileText },
   { title: "Trainings", urlKey: "trainings", icon: Award },
+  { title: "Construction Details", urlKey: "construction-details", icon: HardHat },
   { title: "Holidays", urlKey: "Holidays", icon: Palmtree },
 ];
 
 export default function Layout() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { user, checkSession: fetchUser, logout: handleLogout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
-  const [user, setUser] = React.useState(null);
-
-  const fetchUser = React.useCallback(async () => {
-    try {
-      const data = await UserEntity.me();
-      setUser(data);
-    } catch (e) {
-      console.warn("Auth check failed", e);
-      if (e.status === 401) {
-        navigate("/login");
-      }
-    }
-  }, [navigate]);
-
-  React.useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
-  const handleLogout = async () => {
-    await UserEntity.logout();
-    navigate("/login");
-  };
 
   const isActive = (urlKey) => {
     const path = createPageUrl(urlKey);

@@ -1,11 +1,24 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User as UserEntity } from "@/api/entities";
 import { client } from "@/api/timesheetClient";
+import { useAuth } from "@/context/AuthContext";
+import { popReturnTo, isSessionExpired } from "@/utils/auth";
 import { AlertCircle, LogIn, UserPlus } from "lucide-react";
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, isChecking } = useAuth();
   const [signupEnabled, setSignupEnabled] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    // If already authenticated and session not expired, redirect to app
+    if (isAuthenticated && !isChecking && isSessionExpired() === false) {
+      const returnTo = popReturnTo();
+      navigate(returnTo, { replace: true });
+    }
+  }, [isAuthenticated, isChecking, navigate]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -28,11 +41,13 @@ export default function LoginPage() {
   }, []);
 
   const handleLogin = () => {
-    UserEntity.loginWithRedirect("/", "login");
+    const returnTo = popReturnTo();
+    UserEntity.loginWithRedirect(returnTo, "login");
   };
 
   const handleSignup = () => {
-    UserEntity.loginWithRedirect("/", "signup");
+    const returnTo = popReturnTo();
+    UserEntity.loginWithRedirect(returnTo, "signup");
   };
 
   return (

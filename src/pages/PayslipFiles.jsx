@@ -29,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { client } from "@/api/timesheetClient";
 import { AnimatePresence, motion } from "framer-motion";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 
 const GlassCard = ({ children, className = "" }) => (
@@ -62,11 +61,11 @@ const ModalContent = ({ children, onClose, className = "" }) => (
   </motion.div>
 );
 
-const getTaxYearString = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    
+// Helpers
+const getTaxYearString = (d) => {
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
     let startYear, endYear;
     if (month < 4 || (month === 4 && day < 6)) {
         startYear = year - 1;
@@ -79,7 +78,6 @@ const getTaxYearString = (date) => {
 };
 
 export default function PayslipFiles() {
-  const isMobile = useIsMobile();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -102,10 +100,6 @@ export default function PayslipFiles() {
   // Bulk Upload State
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, status: "" });
   const bulkInputRef = useRef(null);
-
-  // View Modal State
-  const [viewPdfUrl, setViewPdfUrl] = useState(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // OCR Inspector State
   const [inspectingFileId, setInspectingFileId] = useState(null);
@@ -382,53 +376,16 @@ export default function PayslipFiles() {
 
   const handleAction = async (file, action = "view") => {
     if (action === "download") {
-        if (!window.confirm(`Download payslip "${file.filename}"?`)) return;
+      if (!window.confirm(`Download payslip "${file.filename}"?`)) return;
+      toast.info("Starting download...");
+      const url = `${client.baseUrl}/payslip-files/${file.id}/download`;
+      window.open(url, "_blank");
+      return;
     }
 
-    if (isMobile && action === "view") {
-        toast.info("Opening payslip...", { duration: 1000 });
-        const url = `${client.baseUrl}/payslip-files/${file.id}/view`;
-        window.open(url, "_blank");
-        return;
-    }
-
-    const toastId = toast.loading(action === "view" ? "Loading viewer..." : "Preparing download...");
-
-    try {
-      const response = await fetch(`${client.baseUrl}/payslip-files/${file.id}/${action}`, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Action failed");
-      
-      const blob = await response.blob();
-      const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(pdfBlob);
-      
-      if (action === "download") {
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', file.filename);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          toast.success("Download started", { id: toastId });
-          setTimeout(() => window.URL.revokeObjectURL(url), 100);
-      } else {
-          setViewPdfUrl(url);
-          setIsViewModalOpen(true);
-          toast.dismiss(toastId);
-      }
-    } catch (err) {
-      console.error(`${action} failed:`, err);
-      toast.error("Error occurred", { id: toastId });
-    }
-  };
-
-  const closeViewModal = () => {
-    if (viewPdfUrl) window.URL.revokeObjectURL(viewPdfUrl);
-    setViewPdfUrl(null);
-    setIsViewModalOpen(false);
-    toast.dismiss();
+    toast.info("Opening payslip...", { duration: 1500 });
+    const url = `${client.baseUrl}/payslip-files/${file.id}/view`;
+    window.open(url, "_blank");
   };
 
   const filteredAndSortedFiles = useMemo(() => {
@@ -815,7 +772,7 @@ export default function PayslipFiles() {
                       onClick={() => handleAction({ id: ocrData.id, filename: ocrData.filename }, "view")}
                       className="text-cyan-400 hover:bg-cyan-500/10 gap-1.5 text-xs"
                     >
-                      <Eye className="h-3.5 w-3.5" /> View
+                      <ExternalLink className="h-3.5 w-3.5" /> View
                     </Button>
                     <Button
                       variant="ghost"
@@ -1017,10 +974,10 @@ export default function PayslipFiles() {
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleAction(file, "view")}
-                        title={isMobile ? "Open PDF" : "View PDF"}
+                        title="Open PDF"
                         className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
                       >
-                        {isMobile ? <ExternalLink className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -1280,29 +1237,6 @@ export default function PayslipFiles() {
           </div>
         )
       )}
-
-      {/* View Modal (Laptop Only) */}
-      <AnimatePresence>
-        {isViewModalOpen && (
-          <ModalOverlay onClose={closeViewModal}>
-            <ModalContent onClose={closeViewModal} className="max-w-5xl w-full h-[90vh] flex flex-col p-0 overflow-hidden bg-white/10 border-white/10">
-              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
-
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-cyan-400" />
-                  <span className="font-bold text-sm md:text-base">Payslip Viewer</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={closeViewModal} className="text-gray-400 hover:text-white rounded-full">
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-              <div className="flex-1 w-full bg-white">
-                <iframe src={viewPdfUrl} className="w-full h-full border-none" title="PDF Viewer" />
-              </div>
-            </ModalContent>
-          </ModalOverlay>
-        )}
-      </AnimatePresence>
 
       {/* Single Upload Modal */}
       <AnimatePresence>
