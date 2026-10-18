@@ -152,9 +152,9 @@ export const client = {
         if (notes != null) fd.append("notes", notes);
         return fetchJson("/receipts/upload", { method: "POST", body: fd });
       },
+      // File URLs rely on the httpOnly access_token cookie; tokens never go in URLs
       fileUrl(id) {
-        const token = getAccessToken();
-        return `${BASE}/receipts/${encodeURIComponent(id)}/file${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+        return `${BASE}/receipts/${encodeURIComponent(id)}/file`;
       },
       async remove(id) { return mkEntity("/receipts").remove(id); },
     },
@@ -168,14 +168,10 @@ export const client = {
         return fetchJson("/trainings/upload", { method: "POST", body: fd });
       },
       fileUrl(id) {
-        const token = getAccessToken();
-        const t = Date.now();
-        return `${BASE}/trainings/${encodeURIComponent(id)}/file?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+        return `${BASE}/trainings/${encodeURIComponent(id)}/file?_t=${Date.now()}`;
       },
       downloadUrl(id) {
-        const token = getAccessToken();
-        const t = Date.now();
-        return `${BASE}/trainings/${encodeURIComponent(id)}/download?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+        return `${BASE}/trainings/${encodeURIComponent(id)}/download?_t=${Date.now()}`;
       },
       async update(id, data) {
         return fetchJson(`/trainings/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
@@ -214,14 +210,10 @@ export const client = {
         return fetchJson("/construction-details/manufacturers");
       },
       fileUrl(id) {
-        const token = getAccessToken();
-        const t = Date.now();
-        return `${BASE}/construction-details/${encodeURIComponent(id)}/view?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+        return `${BASE}/construction-details/${encodeURIComponent(id)}/view?_t=${Date.now()}`;
       },
       downloadUrl(id) {
-        const token = getAccessToken();
-        const t = Date.now();
-        return `${BASE}/construction-details/${encodeURIComponent(id)}/download?_t=${t}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+        return `${BASE}/construction-details/${encodeURIComponent(id)}/download?_t=${Date.now()}`;
       },
     },
   },

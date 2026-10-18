@@ -188,8 +188,9 @@ export default function PayslipFiles() {
           auto_upload_folder: userProfile.auto_upload_folder || "",
           auto_upload_company: userProfile.auto_upload_company || "",
           auto_upload_email: userProfile.auto_upload_email || "",
-          auto_upload_app_password: userProfile.auto_upload_app_password || "",
-          pdf_password: userProfile.pdf_password || "",
+          // Passwords are write-only: undefined (untouched) is dropped from the JSON and keeps the stored value
+          auto_upload_app_password: userProfile.auto_upload_app_password,
+          pdf_password: userProfile.pdf_password,
         }
       });
       setUserProfile(updated);
@@ -1141,11 +1142,11 @@ export default function PayslipFiles() {
                         <div className="relative mt-1.5">
                           <Input
                             type={showAppPassword ? "text" : "password"}
-                            placeholder="16-character app password"
+                            placeholder={userProfile.has_auto_upload_app_password ? "Saved — leave blank to keep" : "16-character app password"}
                             value={userProfile.auto_upload_app_password || ""}
-                            onChange={(e) => handleProfileFieldChange("auto_upload_app_password", e.target.value)}
+                            onChange={(e) => handleProfileFieldChange("auto_upload_app_password", e.target.value || undefined)}
                             className="bg-white/5 border-white/10 pr-10"
-                            required
+                            required={!userProfile.has_auto_upload_app_password}
                           />
                           <button
                             type="button"
@@ -1166,9 +1167,9 @@ export default function PayslipFiles() {
                       <div className="relative mt-1.5">
                         <Input
                           type={showPdfPassword ? "text" : "password"}
-                          placeholder="Enter password if your payslip PDFs are locked"
+                          placeholder={userProfile.has_pdf_password ? "Saved — leave blank to keep" : "Enter password if your payslip PDFs are locked"}
                           value={userProfile.pdf_password || ""}
-                          onChange={(e) => handleProfileFieldChange("pdf_password", e.target.value)}
+                          onChange={(e) => handleProfileFieldChange("pdf_password", e.target.value || undefined)}
                           className="bg-white/5 border-white/10 pr-10"
                         />
                         <button
