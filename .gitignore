@@ -32,3 +32,4 @@ node_modules/
 *.log
 .idea/
 .vscode/
+AGENT_README.md
