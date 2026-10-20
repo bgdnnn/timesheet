@@ -82,6 +82,8 @@ export default function PayslipFiles() {
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isP60UploadModalOpen, setIsP60UploadModalOpen] = useState(false);
+  const [isDocUploadModalOpen, setIsDocUploadModalOpen] = useState(false);
+  const [docTitle, setDocTitle] = useState("");
   const [isUploading, setIsUpload] = useState(false);
   const [activeTab, setActiveTab] = useState("payslips");
   const [userProfile, setUserProfile] = useState(null);
@@ -291,6 +293,37 @@ export default function PayslipFiles() {
     }
   };
 
+  const handleDocUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedFile || !docTitle.trim()) {
+        toast.error("Please fill all fields");
+        return;
+    }
+
+    setIsUpload(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("title", docTitle.trim());
+    formData.append("process_date", processDate);
+
+    try {
+      await client.fetchJson("/payslip-files/documents/upload", {
+        method: "POST",
+        body: formData
+      });
+      toast.success("Document archived");
+      setIsDocUploadModalOpen(false);
+      setSelectedFile(null);
+      setDocTitle("");
+      fetchFiles();
+    } catch (err) {
+      console.error("Document upload failed:", err);
+      toast.error("Upload failed");
+    } finally {
+      setIsUpload(false);
+    }
+  };
+
   const handleBulkFiles = async (e) => {
     const selectedFiles = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
     if (selectedFiles.length === 0) return;
@@ -363,8 +396,8 @@ export default function PayslipFiles() {
   };
 
   const handleDelete = async (file) => {
-    const isP60 = file.tax_week === 0;
-    if (!confirm(`Are you sure you want to delete this ${isP60 ? "P60 statement" : "payslip"}?`)) return;
+    const kind = file.doc_type === "document" ? "document" : file.tax_week === 0 ? "P60 statement" : "payslip";
+    if (!confirm(`Are you sure you want to delete this ${kind}?`)) return;
     try {
       await client.fetchJson(`/payslip-files/${file.id}`, { method: "DELETE" });
       toast.success("Deleted");
@@ -392,10 +425,12 @@ export default function PayslipFiles() {
   const filteredAndSortedFiles = useMemo(() => {
     let result = [...files];
 
-    if (activeTab === "payslips") {
-        result = result.filter(f => f.tax_week !== 0);
+    if (activeTab === "documents") {
+        result = result.filter(f => f.doc_type === "document");
+    } else if (activeTab === "payslips") {
+        result = result.filter(f => f.doc_type !== "document" && f.tax_week !== 0);
     } else {
-        result = result.filter(f => f.tax_week === 0);
+        result = result.filter(f => f.doc_type !== "document" && f.tax_week === 0);
     }
 
     if (filterYear) {
@@ -486,6 +521,20 @@ export default function PayslipFiles() {
                 <Plus className="h-5 w-5" />
                 Add P60
             </Button>
+            {activeTab === "documents" && (
+              <Button 
+                  onClick={() => {
+                    setProcessDate(format(new Date(), "yyyy-MM-dd"));
+                    setDocTitle("");
+                    setSelectedFile(null);
+                    setIsDocUploadModalOpen(true);
+                  }}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold h-11 px-6 rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                  <Plus className="h-5 w-5" />
+                  Add Document
+              </Button>
+            )}
         </div>
       </div>
 
@@ -512,6 +561,17 @@ export default function PayslipFiles() {
           }`}
         >
           P60 End-of-Year Statements
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("documents");
+            setSortField("date");
+          }}
+          className={`px-6 py-3 text-sm font-bold transition-all border-b-2 ${
+            activeTab === "documents" ? "text-cyan-400 border-cyan-400" : "text-gray-400 hover:text-white border-transparent"
+          }`}
+        >
+          Other Documents
         </button>
         <button
           onClick={() => {
@@ -989,18 +1049,20 @@ export default function PayslipFiles() {
                       >
                         <Download className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => {
-                          setInspectingFileId(file.id);
-                          setActiveTab("ocrInspector");
-                        }}
-                        title="Inspect OCR Text"
-                        className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
-                      >
-                        <BookOpen className="h-4 w-4" />
-                      </Button>
+                      {file.doc_type !== "document" && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                            setInspectingFileId(file.id);
+                            setActiveTab("ocrInspector");
+                          }}
+                          title="Inspect OCR Text"
+                          className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full h-8 w-8"
+                        >
+                          <BookOpen className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -1015,7 +1077,9 @@ export default function PayslipFiles() {
                   
                   <div>
                     <h3 className="font-bold text-lg leading-none mb-2">
-                      {file.tax_week === 0 ? `P60 Statement - Year ${file.tax_year}` : file.filename}
+                      {file.doc_type === "document"
+                        ? file.filename.replace(/\.pdf$/i, "")
+                        : file.tax_week === 0 ? `P60 Statement - Year ${file.tax_year}` : file.filename}
                     </h3>
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -1024,7 +1088,7 @@ export default function PayslipFiles() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-400">
                         <Hash className="h-3 w-3" />
-                        {file.tax_week === 0 ? (
+                        {file.doc_type === "document" || file.tax_week === 0 ? (
                           <span>Year {file.tax_year}</span>
                         ) : (
                           <span>Tax Week {file.tax_week} • Year {file.tax_year}</span>
@@ -1041,7 +1105,7 @@ export default function PayslipFiles() {
             <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
               <FileText className="h-16 w-16 text-white/10 mb-4" />
               <p className="text-gray-400 font-medium">
-                {activeTab === "p60" ? "No P60 statements found matching your filters." : "No payslips found matching your filters."}
+                {activeTab === "p60" ? "No P60 statements found matching your filters." : activeTab === "documents" ? "No other documents found matching your filters." : "No payslips found matching your filters."}
               </p>
               <Button 
                 variant="link" 
@@ -1384,6 +1448,72 @@ export default function PayslipFiles() {
                     className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 rounded-xl"
                   >
                     {isUploading ? "Uploading..." : "Archive P60"}
+                  </Button>
+                </div>
+              </form>
+            </ModalContent>
+          </ModalOverlay>
+        )}
+        {isDocUploadModalOpen && (
+          <ModalOverlay onClose={() => setIsDocUploadModalOpen(false)}>
+            <ModalContent onClose={() => setIsDocUploadModalOpen(false)} className="max-w-md">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+                    <Plus className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold">Archive Payroll Document</h2>
+              </div>
+
+              <form onSubmit={handleDocUpload} className="space-y-4">
+                <div>
+                  <Label>PDF File</Label>
+                  <Input 
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={(e) => setSelectedFile(e.target.files[0])}
+                    className="mt-1.5 bg-white/5 border-white/10"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>Title</Label>
+                  <Input 
+                    type="text" 
+                    placeholder="e.g. Holiday pay letter"
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    className="mt-1.5 bg-white/5 border-white/10"
+                    required
+                  />
+                </div>
+
+                <div>
+                    <Label>Document Date</Label>
+                    <Input 
+                        type="date" 
+                        value={processDate}
+                        onChange={(e) => setProcessDate(e.target.value)}
+                        className="mt-1.5 bg-white/5 border-white/10"
+                        required
+                    />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    onClick={() => setIsDocUploadModalOpen(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold px-6 rounded-xl"
+                  >
+                    {isUploading ? "Uploading..." : "Archive Document"}
                   </Button>
                 </div>
               </form>
