@@ -13,8 +13,8 @@ import WeekSummary from "@/components/week-view/WeekSummary.jsx";
 import ProfileModal from "@/components/profile/ProfileModal.jsx";
 import NotepadModal from "@/components/week-view/NotepadModal.jsx";
 
-const GlassCard = ({ children, className = "" }) => (
-  <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-lg ${className}`}>
+const GlassCard = ({ children, className = "", ...props }) => (
+  <div className={`wf-glass rounded-2xl ${className}`} {...props}>
     {children}
   </div>
 );
@@ -489,8 +489,9 @@ export default function WeekView() {
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
-        <div className="text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-bold">Week View</h1>
+        <div className="wf-week-heading text-center md:text-left">
+          <span className="wf-topline justify-center md:justify-start">Weekly overview</span>
+          <h1>Your week<span>.</span></h1>
           <div className="flex items-center justify-center md:justify-start gap-2 mt-1">
             <p className="text-sm md:text-base text-gray-300">
               {format(weekStart, "MMM d")} - {format(addDays(weekStart, 6), "MMM, d yyyy")}
@@ -503,7 +504,7 @@ export default function WeekView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 md:gap-4">
-          <GlassCard className="flex items-center p-2 rounded-xl">
+          <GlassCard className="wf-hours-pill flex items-center p-2 rounded-xl">
             <span className="text-xs md:text-sm px-2 md:px-4">
               Total: <span className="font-bold text-sm md:text-lg">{totalWeekHours.toFixed(1)}h</span>
             </span>
@@ -511,7 +512,7 @@ export default function WeekView() {
 
           <Button
             onClick={() => openModalForDate(new Date())}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 text-white rounded-lg px-3 md:px-4 py-2 flex items-center gap-2 transition-all text-sm md:text-base"
+            className="rounded-xl px-4 md:px-5 py-2 flex items-center gap-2 text-sm"
           >
             <Plus className="h-4 w-4 md:h-5 md:w-5" />
             <span className="hidden sm:inline">Add Entry</span>
@@ -552,8 +553,8 @@ export default function WeekView() {
         </div>
       )}
 
-      <div className="flex justify-center items-center gap-3 md:gap-4 mb-6 md:mb-8">
-        <Button onClick={handlePreviousWeek} variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
+      <div className="wf-week-controls flex justify-center items-center gap-1.5 md:gap-2 mb-6 md:mb-8">
+        <Button onClick={handlePreviousWeek} aria-label="Previous week" variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
           <ChevronLeft className="h-4 w-4 md:h-5 w-5" />
         </Button>
         <Button onClick={handleGoToToday} variant="ghost" className="bg-white/10 rounded-lg hover:bg-white/20 text-xs md:text-sm px-2 md:px-3 py-1 md:py-2">
@@ -562,7 +563,7 @@ export default function WeekView() {
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
+            <Button aria-label="Choose a week" variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
               <CalendarDays className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </PopoverTrigger>
@@ -571,12 +572,12 @@ export default function WeekView() {
           </PopoverContent>
         </Popover>
 
-        <Button onClick={handleNextWeek} variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
+        <Button onClick={handleNextWeek} aria-label="Next week" variant="ghost" size="icon" className="bg-white/10 rounded-full hover:bg-white/20 h-8 w-8 md:h-10 md:w-10">
           <ChevronRight className="h-4 w-4 md:h-5 w-5" />
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-3 md:gap-4">
         {weekDays.map((day, i) => {
           const dayEntries = getEntriesForDay(day);
           const totalDayHours = dayEntries.reduce(
@@ -589,11 +590,11 @@ export default function WeekView() {
           const noteContent = notesByDay[key];
 
           return (
-            <GlassCard key={i} className="p-3 md:p-4 flex flex-col min-h-fit relative">
+            <GlassCard key={i} className="wf-day-card p-3 md:p-4 flex flex-col min-h-fit relative" data-today={isSameDay(day, new Date())} style={{ "--day-index": i }}>
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <div className="text-center w-full">
-                  <p className="font-bold text-base md:text-lg">{format(day, "EEE")}</p>
-                  <p className={`text-sm ${isSameDay(day, new Date()) ? "text-sky-400" : "text-gray-300"}`}>{format(day, "d")}</p>
+                  <p className="font-semibold uppercase tracking-[0.13em] text-[10px] text-slate-400 mb-1">{format(day, "EEE")}</p>
+                  <p className="wf-day-number">{format(day, "d")}</p>
                 </div>
                 {receiptCount > 0 && (
                   <div className="absolute -mt-2 -mr-2 right-3 top-3 flex items-center gap-1 rounded-full bg-white/15 px-2 py-1 border border-white/25">
@@ -641,7 +642,7 @@ export default function WeekView() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     onClick={() => openModalForEntry(e)}
-                    className="bg-white/5 p-2 md:p-3 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 active:bg-white/15 transition-all"
+                    className="wf-entry p-2 md:p-3 rounded-xl cursor-pointer"
                   >
                     <p className="font-semibold text-xs md:text-sm truncate">{e.project_name}</p>
                     <p className="text-xs text-gray-300">
@@ -653,7 +654,7 @@ export default function WeekView() {
                 {dayEntries.length === 0 && (
                   <div
                     onClick={() => openModalForDate(day)}
-                    className="flex items-center justify-center h-12 md:h-16 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-white/40 hover:bg-white/5 transition-all"
+                    className="wf-add-slot flex items-center justify-center h-12 md:h-16 border border-dashed border-white/15 rounded-xl cursor-pointer"
                   >
                     <Plus className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                   </div>

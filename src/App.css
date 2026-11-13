@@ -1,0 +1,86 @@
+/* WorkFlow visual system: motion stays decorative; controls keep native semantics. */
+.workflow-app,
+.workflow-login {
+  --wf-accent: #5eead4;
+  --wf-muted: #8ea5ba;
+  background: #080f1c;
+  color: #edf5fb;
+  isolation: isolate;
+  position: relative;
+}
+.workflow-app { min-height: 100vh; }
+.wf-ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 75% 0%, #12304466, transparent 65%); }
+.wf-ambient::before, .wf-ambient::after { content: ''; position: absolute; width: min(75vw, 850px); height: min(75vw, 850px); border-radius: 50%; opacity: .5; }
+.wf-ambient::before { right: -15%; top: -40%; background: radial-gradient(circle, #0c716a44, transparent 68%); animation: wf-drift 24s ease-in-out infinite alternate; }
+.wf-ambient::after { left: 10%; bottom: -50%; background: radial-gradient(circle, #2353a33b, transparent 68%); animation: wf-drift 29s ease-in-out infinite alternate-reverse; }
+.wf-sidebar { background: linear-gradient(180deg, #0d1828ee, #09111eee); border-right: 1px solid #b5dce011; }
+.wf-brand-mark { background: linear-gradient(135deg, #71f0cf, #23a7bf); color: #062c32; box-shadow: 0 6px 22px #2dd4bf20, inset 0 1px 0 #ffffff66; }
+.wf-nav-link { position: relative; border: 1px solid transparent; transition: background .2s, border-color .2s, color .2s, transform .2s; }
+.wf-nav-link[aria-current='page'] { background: linear-gradient(105deg, #35d7bc20, #45a5de0c); border-color: #5eead426; color: #8df5df; box-shadow: inset 3px 0 0 #5eead4; }
+.wf-nav-link[aria-current='page'] svg { filter: drop-shadow(0 0 6px #5eead43d); }
+.wf-nav-section { color: #647e95; font-size: 9px; letter-spacing: .2em; font-weight: 700; text-transform: uppercase; padding: 22px 16px 9px; }
+.wf-sidebar-footer { background: #060d1680; border-top: 1px solid #ffffff0a; }
+.wf-mobile-header { background: #0b1424e8; border-bottom: 1px solid #ffffff0b; }
+.wf-topline { display: flex; align-items: center; gap: 8px; color: #7c93ab; font-size: 10px; font-weight: 650; letter-spacing: .16em; text-transform: uppercase; }
+.wf-topline::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #5eead4; box-shadow: 0 0 10px #5eead440; }
+.wf-page { animation: wf-page-in .3s ease-out; }
+.workflow-app h1 { letter-spacing: -.045em; font-weight: 750; }
+.workflow-app input, .workflow-app textarea, .workflow-app select { transition: border-color .2s, box-shadow .2s, background-color .2s; }
+.workflow-app input:focus-visible, .workflow-app textarea:focus-visible { border-color: #5eead480; box-shadow: 0 0 0 3px #5eead412; }
+.workflow-app input[type='checkbox']:focus-visible { box-shadow: 0 0 0 3px #5eead440; }
+.wf-button { position: relative; isolation: isolate; font-weight: 650; letter-spacing: -.01em; transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .2s, background .2s, border-color .2s, color .2s; }
+.wf-button[data-variant='default'] { background: linear-gradient(115deg, #8af0da, #4bd5c6 55%, #64c8ed); color: #082a32; border: 1px solid #a4fae75c; box-shadow: 0 3px 12px #25b5aa19, inset 0 1px 0 #ffffff55; background-size: 180% 100%; }
+.wf-button[data-variant='default']:not(:disabled):hover { background-position: 100% 0; box-shadow: 0 7px 24px #25b5aa30, inset 0 1px 0 #ffffff66; }
+.wf-button[data-variant='outline'] { border-color: #9fbfd72c; background-color: #14223466; }
+.wf-button[data-variant='outline']:not(:disabled):hover { border-color: #6ee7ce66; background-color: #203b4680; }
+.wf-button[data-variant='default']::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(110deg, transparent 22%, #ffffff38 48%, transparent 72%); background-size: 250% 100%; background-position: 120% 0; opacity: 0; transition: background-position .6s ease, opacity .3s; }
+.wf-button[data-variant='default']:not(:disabled):hover::after { background-position: -40% 0; opacity: 1; }
+.wf-button:focus-visible, .wf-action:focus-visible, .wf-nav-link:focus-visible, .wf-icon-button:focus-visible { outline: 2px solid #5eead4; outline-offset: 4px; }
+.wf-button:not(:disabled):active, .wf-action:active, .wf-icon-button:active { transform: scale(.96); }
+.wf-button svg { transition: transform .2s ease; }
+.wf-action, .wf-icon-button { transition: background .2s, color .2s, transform .18s, box-shadow .2s; }
+.wf-card, .wf-glass { background: linear-gradient(145deg, #172b3caa, #101e30bb); border: 1px solid #9bc5de20; box-shadow: 0 7px 25px #0000000d, inset 0 1px 0 #ffffff04; transition: border-color .25s, box-shadow .25s; }
+.wf-card:hover, .wf-glass:hover { border-color: #9bc5de38; }
+.wf-week-heading { display: flex; flex-direction: column; gap: 10px; }
+.wf-week-heading h1 { font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.08; }
+.wf-week-heading h1 span { color: #75e6cf; }
+.wf-hours-pill { background: #101e2dcc; border: 1px solid #9ac4dc20; box-shadow: inset 0 1px 0 #ffffff06; }
+.wf-week-controls { background: #101e2dbb; border: 1px solid #94b4cf1f; border-radius: 18px; padding: 6px; width: fit-content; margin-inline: auto; }
+.wf-day-card { min-height: 230px; border-radius: 20px; animation: wf-card-in .45s ease-out backwards; animation-delay: calc(var(--day-index, 0) * 35ms); }
+.wf-day-card[data-today='true'] { background: linear-gradient(160deg, #19423fbb, #102735bb 65%); border-color: #5eead464; box-shadow: 0 0 0 1px #5eead40c, 0 8px 30px #0a6e6420; }
+.wf-day-number { display: inline-flex; justify-content: center; align-items: center; min-width: 38px; height: 38px; border-radius: 12px; font-size: 1.3rem; font-weight: 750; letter-spacing: -.04em; color: #ebf3f9; }
+[data-today='true'] .wf-day-number { background: #67e8cc; color: #09352e; box-shadow: 0 3px 15px #5eead425; }
+.wf-entry { background: #b7d7e10a; border: 1px solid #b7d7e117; border-left: 2px solid #5eead485; transition: background .2s, border-color .2s, box-shadow .2s; }
+.wf-entry:hover { background: #a6dcca12; border-color: #5eead43d; box-shadow: 0 4px 14px #00000012; }
+.wf-add-slot { transition: background .2s, border-color .2s; }
+.wf-add-slot:hover { background: #5eead40a; border-color: #5eead45e; }
+.wf-add-slot svg { transition: transform .25s, color .25s; }
+.wf-add-slot:hover svg { transform: rotate(90deg); color: #84edda; }
+.wf-summary { background: linear-gradient(135deg, #172e3bb3, #111d30cc); border: 1px solid #b1d5e024; box-shadow: inset 0 1px 0 #ffffff07; }
+.wf-stat { border-radius: 16px; background: #06142155; border: 1px solid #b1d5e017; padding: 18px; min-width: 0; transition: border-color .2s, background .2s; }
+.wf-stat:hover { border-color: #b1d5e033; background: #10263880; }
+.wf-stat-label { color: #91a8bd; font-size: 11px; font-weight: 550; }
+.wf-stat-value { font-size: clamp(1.3rem, 2.3vw, 1.85rem); font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin-top: 9px; }
+.wf-stat-net { background: linear-gradient(130deg, #22655240, #1b555c22); border-color: #5eead42b; }
+.wf-stat-net .wf-stat-value { color: #8defd3; }
+.wf-today-dot { width: 5px; height: 5px; display: inline-block; border-radius: 50%; background: #7ee9d1; }
+.wf-login-card { background: linear-gradient(145deg, #1a3142c9, #101b2de6); border: 1px solid #b1d5e026; box-shadow: 0 30px 100px #00000038; animation: wf-card-in .6s ease-out; }
+.wf-login-grid { position: absolute; inset: 0; pointer-events: none; z-index: -1; background-image: linear-gradient(#9ac4dc06 1px, transparent 1px), linear-gradient(90deg, #9ac4dc06 1px, transparent 1px); background-size: 60px 60px; mask-image: radial-gradient(ellipse at center, black, transparent 75%); }
+@media (hover: hover) and (pointer: fine) {
+  .wf-button:not(:disabled):not([data-variant='link']):hover { transform: translateY(-2px); }
+  .wf-button:not(:disabled):hover svg { transform: translateY(-1px); }
+  .wf-button:not(:disabled):active { transform: translateY(0) scale(.97); }
+  .wf-nav-link:hover { transform: translateX(3px); }
+}
+@media (max-width: 639px) {
+  .wf-day-card { min-height: 165px; }
+  .wf-stat { padding: 14px; }
+}
+@keyframes wf-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-5%, 9%, 0); } }
+@keyframes wf-page-in { from { opacity: .35; } to { opacity: 1; } }
+@keyframes wf-card-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .workflow-app *, .workflow-app *::before, .workflow-app *::after,
+  .workflow-login *, .workflow-login *::before, .workflow-login *::after { animation: none !important; transition-duration: 0s !important; scroll-behavior: auto !important; }
+  .wf-button:hover, .wf-button:active, .wf-nav-link:hover, .wf-add-slot:hover svg, .wf-button:hover svg { transform: none !important; }
+}

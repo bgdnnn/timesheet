@@ -95,7 +95,7 @@ export default function WeekSummary(props) {
 
   if (user && !user.is_calculator_enabled) {
     return (
-        <div className="mt-4 rounded-2xl border border-white/20 bg-white/5 p-4 md:p-6 text-white">
+        <div className="wf-summary mt-6 rounded-3xl p-4 md:p-6 text-white">
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                 <div className="col-span-1">
                     <div className="text-xs text-gray-300 mb-1">Week</div>
@@ -116,74 +116,48 @@ export default function WeekSummary(props) {
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/20 bg-white/5 p-4 md:p-6 text-white">
-      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-3 gap-4 items-end">
+    <section className="wf-summary mt-6 rounded-3xl p-4 md:p-6 text-white" aria-label="Weekly earnings summary">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <div className="text-xs text-gray-300 mb-1">Week</div>
-          <div className="text-sm md:text-base font-semibold">
-            {format(weekStart, "dd LLL yyyy")}
-          </div>
-          {earnings?.tax_week && (
-            <div className="text-[10px] text-sky-400 font-bold uppercase tracking-wider mt-0.5">
-              Tax Week {earnings.tax_week}
-            </div>
-          )}
+          <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-teal-300/80 mb-1">The bigger picture</p>
+          <h2 className="text-lg font-semibold tracking-tight">Week summary</h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Starting {format(weekStart, "dd LLL yyyy")}
+            {earnings?.tax_week ? ` · Tax week ${earnings.tax_week}` : ""}
+          </p>
         </div>
-
-        <div>
-          <div className="text-xs text-gray-300 mb-1">Hours</div>
-          <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
-            {hoursNum.toFixed(2)} h
-          </div>
-        </div>
-
-        <div>
-          <div className="text-xs text-gray-300 mb-1">Gross (£)</div>
-          <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-2">
-            £{gross.toFixed(2)}
-          </div>
-        </div>
-      </div>
-
-      <div className={`grid grid-cols-1 md:grid-cols-${isSelfEmployed ? 3 : 2} gap-4 mt-4`}>
-        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
-          <div className="text-xs text-gray-300 mb-1">
-            {isSelfEmployed ? "Tax (20%)" : "PAYE Tax"}
-          </div>
-          <div className="text-base font-semibold">
-            {payeTax != null ? <>£{payeTax.toFixed(2)}</> : <span className="text-gray-400">—</span>}
-          </div>
-        </div>
-
-        {isSelfEmployed && (
-          <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
-            <div className="text-xs text-gray-300 mb-1">Guild Tax</div>
-            <div className="text-base font-semibold">
-              {guildTax != null ? <>£{guildTax.toFixed(2)}</> : <span className="text-gray-400">—</span>}
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-lg bg-white/10 border border-white/20 px-3 py-3">
-          <div className="text-xs text-gray-300 mb-1">Net Pay</div>
-          <div className="text-base font-semibold">
-            {netPay != null ? `£${netPay.toFixed(2)}` : <span className="text-gray-400">—</span>}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 text-xs text-gray-300 flex items-center gap-2">
-        <span>Source:</span>
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-          usingPayslip 
-            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-            : usingEarnings 
-            ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" 
-            : "bg-white/5 text-gray-400 border border-white/10"
+        <span className={`px-3 py-1.5 rounded-full text-[10px] font-semibold tracking-wide border ${
+          usingPayslip ? "bg-emerald-400/10 text-emerald-300 border-emerald-400/20"
+            : usingEarnings ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
+            : "bg-white/5 text-slate-400 border-white/10"
         }`}>
-          {source}
+          Source: {source}
         </span>
       </div>
-    </div>
+      <div className={`grid grid-cols-2 ${isSelfEmployed ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
+        <div className="wf-stat">
+          <div className="wf-stat-label">Total hours</div>
+          <div className="wf-stat-value">{hoursNum.toFixed(2)}<span className="text-sm text-slate-500 font-normal ml-1">h</span></div>
+        </div>
+        <div className="wf-stat">
+          <div className="wf-stat-label">Gross pay</div>
+          <div className="wf-stat-value">£{gross.toFixed(2)}</div>
+        </div>
+        <div className="wf-stat">
+          <div className="wf-stat-label">{isSelfEmployed ? "Tax (20%)" : "PAYE tax"}</div>
+          <div className="wf-stat-value">{payeTax != null ? `£${payeTax.toFixed(2)}` : "—"}</div>
+        </div>
+        {isSelfEmployed && (
+          <div className="wf-stat">
+            <div className="wf-stat-label">Guild tax</div>
+            <div className="wf-stat-value">{guildTax != null ? `£${guildTax.toFixed(2)}` : "—"}</div>
+          </div>
+        )}
+        <div className="wf-stat wf-stat-net">
+          <div className="wf-stat-label text-teal-200/70">Net pay</div>
+          <div className="wf-stat-value">{netPay != null ? `£${netPay.toFixed(2)}` : "—"}</div>
+        </div>
+      </div>
+    </section>
   );
 }

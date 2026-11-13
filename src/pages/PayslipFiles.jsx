@@ -198,7 +198,11 @@ export default function PayslipFiles() {
       setUserProfile(updated);
       
       if (userProfile.is_auto_upload_enabled) {
-        toast.success("Settings saved & mailbox verified!", { id: toastId });
+        if (updated.auto_upload_warning) {
+          toast.warning(updated.auto_upload_warning, { id: toastId });
+        } else {
+          toast.success("Settings saved & mailbox verified!", { id: toastId });
+        }
         const newFiles = await fetchFiles();
         const addedCount = newFiles.length - oldFilesCount;
         setImportResult({ count: addedCount, success: true });

@@ -1,6 +1,6 @@
 // src/pages/Layout.jsx
 import React from "react";
-import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
+import { Link, useLocation, Outlet } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import {
   Briefcase,
@@ -17,20 +17,22 @@ import {
   Award,
   Palmtree,
   HardHat,
+  ReceiptText,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 import ProfileModal from "../components/profile/ProfileModal";
 
 const navigationItems = [
-  { title: "Week View", urlKey: "WeekView", icon: Calendar },
+  { title: "Week View", urlKey: "WeekView", icon: Calendar, section: "Workspace" },
   { title: "Projects", urlKey: "Projects", icon: Briefcase },
   { title: "Hotels", urlKey: "Hotels", icon: Building },
-  { title: "Receipts", urlKey: "Receipts", icon: Calendar },
-  { title: "Expenses", urlKey: "Expenses", icon: Calendar },
+  { title: "Receipts", urlKey: "Receipts", icon: ReceiptText, section: "Finance" },
+  { title: "Expenses", urlKey: "Expenses", icon: Wallet },
   { title: "Earnings", urlKey: "Earnings", icon: DollarSign },
   { title: "Payslips", urlKey: "payslips", icon: FileText },
-  { title: "Trainings", urlKey: "trainings", icon: Award },
+  { title: "Trainings", urlKey: "trainings", icon: Award, section: "Records" },
   { title: "Construction Details", urlKey: "construction-details", icon: HardHat },
   { title: "Holidays", urlKey: "Holidays", icon: Palmtree },
 ];
@@ -47,17 +49,19 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-sky-700 bg-fixed font-sans selection:bg-blue-500/30 text-white">
+    <div className="workflow-app font-sans selection:bg-teal-400/25 text-white">
+      <div className="wf-ambient" aria-hidden="true" />
       {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-black/10 border-r border-white/10 hidden lg:flex flex-col z-40 backdrop-blur-xl">
-        <div className="p-8">
+      <aside className="fixed left-0 top-0 bottom-0 w-64 wf-sidebar hidden lg:flex flex-col z-40 backdrop-blur-xl">
+        <div className="px-7 pt-8 pb-3">
           <div className="flex items-center space-x-3 group">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-sky-600 shadow-lg shadow-blue-500/20">
-              <Clock className="h-6 w-6 text-white" />
+            <div className="wf-brand-mark p-2.5 rounded-2xl">
+              <Clock className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-black text-white">
-              WorkFlow
-            </span>
+            <div>
+              <span className="text-xl font-bold tracking-tight text-white">WorkFlow<span className="text-teal-300">.</span></span>
+              <p className="text-[10px] tracking-[0.18em] uppercase text-slate-500 mt-0.5">Time well spent</p>
+            </div>
           </div>
         </div>
 
@@ -66,10 +70,12 @@ export default function Layout() {
             const Icon = item.icon;
             const active = isActive(item.urlKey);
             return (
+              <React.Fragment key={item.title}>
+              {item.section && <div className="wf-nav-section">{item.section}</div>}
               <Link
-                key={item.title}
+                aria-current={active ? "page" : undefined}
                 to={createPageUrl(item.urlKey)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                className={`wf-nav-link flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   active
                     ? "bg-white/10 text-sky-400 border border-white/10"
                     : "text-white/60 hover:bg-white/5 hover:text-white"
@@ -88,12 +94,14 @@ export default function Layout() {
                   />
                 )}
               </Link>
+              </React.Fragment>
             );
           })}
           {user?.role === "admin" && (
             <Link
               to="/admin"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+              aria-current={location.pathname === "/admin" ? "page" : undefined}
+              className={`wf-nav-link flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                 location.pathname === "/admin"
                   ? "bg-white/10 text-cyan-400 border border-white/10"
                   : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
@@ -105,10 +113,10 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="p-4 space-y-2 border-t border-white/10 bg-black/20">
+        <div className="wf-sidebar-footer p-4 space-y-2">
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-white/10 transition-all duration-200 text-left"
+            className="wf-action w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-white/10 transition-all duration-200 text-left"
           >
             <User className="h-5 w-5 flex-shrink-0" />
             <div className="flex flex-col overflow-hidden">
@@ -119,7 +127,7 @@ export default function Layout() {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all duration-200 group"
+            className="wf-action w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all duration-200 group"
           >
             <LogOut className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             <span className="text-sm font-bold">Sign Out</span>
@@ -128,16 +136,19 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-gray-900/80 backdrop-blur-lg border-b border-white/10 z-50 px-4 flex items-center justify-between">
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 wf-mobile-header backdrop-blur-lg z-50 px-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-sky-600">
+          <div className="wf-brand-mark p-1.5 rounded-lg">
             <Clock className="h-5 w-5 text-white" />
           </div>
           <span className="text-lg font-black text-white">WorkFlow</span>
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-gray-400 hover:text-white transition-colors"
+          aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="mobile-navigation"
+          className="wf-icon-button p-2 text-gray-400 hover:text-white transition-colors"
         >
           {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -159,14 +170,16 @@ export default function Layout() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 w-[280px] bg-gray-900 border-l border-white/10 z-[60] lg:hidden flex flex-col shadow-2xl"
+              id="mobile-navigation"
+              className="fixed right-0 top-0 bottom-0 w-[280px] bg-[#0c1727] border-l border-white/10 z-[60] lg:hidden flex flex-col shadow-2xl"
             >
               <div className="p-6 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-6">
                   <span className="text-xl font-black text-white">Menu</span>
                   <button
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 text-gray-400 hover:text-white"
+                    aria-label="Close navigation"
+                    className="wf-icon-button p-2 text-gray-400 hover:text-white"
                   >
                     <X className="h-6 w-6" />
                   </button>
@@ -179,9 +192,10 @@ export default function Layout() {
                     return (
                       <Link
                         key={item.title}
+                        aria-current={active ? "page" : undefined}
                         to={createPageUrl(item.urlKey)}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`flex items-center space-x-3 px-4 py-2 rounded-xl transition-all ${
+                        className={`wf-nav-link flex items-center space-x-3 px-4 py-2 rounded-xl transition-all ${
                           active
                             ? "bg-blue-500/10 text-sky-400 border border-sky-500/20"
                             : "text-white/70"
@@ -196,7 +210,7 @@ export default function Layout() {
                     <Link
                       to="/admin"
                       onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center space-x-3 px-4 py-2 rounded-xl transition-all ${
+                      className={`wf-nav-link flex items-center space-x-3 px-4 py-2 rounded-xl transition-all ${
                         location.pathname === "/admin"
                           ? "bg-blue-500/10 text-sky-400 border border-sky-500/20"
                           : "text-white/70"
@@ -236,8 +250,14 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="lg:pl-64 pt-16 lg:pt-0">
-        <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12 min-h-screen">
-          <Outlet context={{ user, fetchUser }} />
+        <div className="max-w-[1440px] mx-auto p-4 md:p-8 lg:px-10 lg:py-10 min-h-screen">
+          <div className="hidden lg:flex items-center justify-between mb-9 pb-5 border-b border-white/[0.06]">
+            <span className="wf-topline">Your workspace</span>
+            <span className="text-xs text-slate-500">{new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date())}</span>
+          </div>
+          <div className="wf-page" key={location.pathname}>
+            <Outlet context={{ user, fetchUser }} />
+          </div>
         </div>
       </main>
 
