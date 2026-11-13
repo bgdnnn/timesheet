@@ -11,6 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { TimeEntry } from "@/api/entities";
 import { format } from "date-fns";
 
+// Saturday/Sunday entries default to a 12 h shift; weekdays use the project's default hours.
+const WEEKEND_DEFAULT_HOURS = 12;
+const isWeekend = (d) => d instanceof Date && (d.getDay() === 0 || d.getDay() === 6);
+const defaultHoursFor = (project, d) =>
+  isWeekend(d) ? WEEKEND_DEFAULT_HOURS : (project?.default_hours_worked || 0);
+
 const ModalOverlay = ({ children, onClose }) => (
   <motion.div
     initial={{ opacity: 0 }}
@@ -115,9 +121,21 @@ export default function TimeEntryModal({
     setError("");
     const p = projects.find((x) => String(x.id) === String(id));
     if (p) {
-      setHoursWorked(p.default_hours_worked || 0);
+      setHoursWorked(defaultHoursFor(p, date));
       setTravelTime(p.default_travel_time || 0);
     }
+  };
+
+  const handleDateChange = (newDate) => {
+    if (!newDate) return; // clicking the selected day again deselects it; keep the current date
+    // New entry: if the hours are still the automatic default, follow the new day (weekday <-> weekend).
+    if (!entry) {
+      const p = projects.find((x) => String(x.id) === String(projectId));
+      if (p && parseFloat(hoursWorked) === defaultHoursFor(p, date)) {
+        setHoursWorked(defaultHoursFor(p, newDate));
+      }
+    }
+    setDate(newDate);
   };
 
   const handleSubmit = async (e) => {
@@ -187,7 +205,7 @@ export default function TimeEntryModal({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 bg-gray-800/80 backdrop-blur-lg border-white/20 text-white" align="start">
-                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
               </PopoverContent>
             </Popover>
           </div>
