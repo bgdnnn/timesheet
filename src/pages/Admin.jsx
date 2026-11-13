@@ -843,17 +843,17 @@ export default function AdminPage() {
                                             <Database className="h-4 w-4" />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <h3 className="font-bold text-sm sm:text-base text-white truncate">Weekly DB SQL Dump</h3>
-                                            <span className="text-[10px] font-mono text-cyan-400 block truncate">30 23 * * 6</span>
+                                            <h3 className="font-bold text-sm sm:text-base text-white truncate">Database Backup</h3>
+                                            <span className="text-[10px] font-mono text-cyan-400 block truncate">0 11,23 * * *</span>
                                         </div>
                                     </div>
                                     <p className="text-xs text-gray-400 mb-3">
-                                        Runs automated <code className="text-cyan-300">pg_dump</code> and compresses to <code className="text-cyan-300">.sql.gz</code> keeping 4 rolling copies.
+                                        Full <code className="text-cyan-300">pg_dump</code> (all entries), encrypted and uploaded to Google Drive. Skipped when nothing changed. Keeps 14 local / 60 Drive copies.
                                     </p>
                                 </div>
                                 <div className="pt-3 border-t border-white/5 text-xs flex justify-between items-center text-gray-400 gap-2">
                                     <span className="truncate">Schedule:</span>
-                                    <span className="text-white font-medium shrink-0">Saturdays 23:30 UTC</span>
+                                    <span className="text-white font-medium shrink-0">Daily 11:00 &amp; 23:00 UTC</span>
                                 </div>
                             </GlassCard>
 
@@ -865,12 +865,12 @@ export default function AdminPage() {
                                             <ShieldCheck className="h-4 w-4" />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <h3 className="font-bold text-sm sm:text-base text-white truncate">Weekly Cloud Sync</h3>
+                                            <h3 className="font-bold text-sm sm:text-base text-white truncate">Weekly Full Archive</h3>
                                             <span className="text-[10px] font-mono text-indigo-400 block truncate">45 23 * * 6</span>
                                         </div>
                                     </div>
                                     <p className="text-xs text-gray-400 mb-3">
-                                        Packages database & media files into <code className="text-indigo-300">.tar.gz</code> archive and uploads to Google Drive.
+                                        Database + payslips, trainings &amp; details in an encrypted archive on Google Drive. Skipped when nothing changed. Keeps 8 copies.
                                     </p>
                                 </div>
                                 <div className="pt-3 border-t border-white/5 text-xs flex justify-between items-center text-gray-400 gap-2">
